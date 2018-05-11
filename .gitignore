@@ -1,0 +1,19 @@
+# Ignore object files
+*.o
+*.so
+
+# Ignore build directory
+build/
+
+# Unignore subdirectories files
+!*.c
+!*.h
+!CMakeLists.txt
+
+# Unignore documentation
+!*.md
+!*.txt
+
+# Unignore .empty and .gitignore
+!.empty
+!.gitignore
