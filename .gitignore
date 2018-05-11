@@ -1,3 +1,6 @@
+.*.swp
+*~
+
 # Ignore object files
 *.o
 *.so
