@@ -40,22 +40,10 @@ struct noravm_regs;
 
 
 /*
- * Nora VM interrupt routine.
- * Call this to raise an interrupt.
- */
-void noravm_interrupt(struct noravm* vm_state, uint16_t intr_no);
-
-
-/*
  * Callback type for the Nora VM interrupt routine.
+ * Use this to raise an interrupt.
  */
 typedef void (*noravm_intr_t)(struct noravm*, uint16_t intr_no);
-
-
-/*
- * Abort the Nora virtual machine with a user signal.
- */
-void noravm_abort(struct noravm* vm_state);
 
 
 

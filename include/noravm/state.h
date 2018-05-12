@@ -4,6 +4,7 @@
 #include <noravm/interrupt.h>
 #include <noravm/segment.h>
 #include <noravm/registers.h>
+#include <noravm/entry.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -42,6 +43,7 @@ struct __attribute__((aligned (16))) noravm_instr
  */
 struct __attribute__((aligned (16))) noravm
 {
+    noravm_start_t      start;                      // Start virtual machine
     noravm_intr_t       interrupt;                  // Interrupt routine
     noravm_exc_t        handler;                    // Exception handler
     uint16_t            mask;                       // Interrupt mask

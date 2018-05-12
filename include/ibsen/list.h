@@ -43,17 +43,30 @@ size_t ibsen_list_count(const struct ibsen_list* head);
 bool ibsen_list_empty(const struct ibsen_list* head);
 
 
-struct ibsen_list* remove_first(struct ibsen_list* head);
+struct ibsen_list* ibsen_list_remove_first(struct ibsen_list* head);
 
 
-struct ibsen_list* remove_last(struct ibsen_list* head);
+struct ibsen_list* ibsen_list_remove_last(struct ibsen_list* head);
 
 
+struct ibsen_list* ibsen_list_peek_first(struct ibsen_list* head);
+
+
+struct ibsen_list* ibsen_list_peek_last(struct ibsen_list* head);
+
+
+#define ibsen_list_first(head, type, member) \
+    (ibsen_list_peek_first(head) ? container_of(ibsen_list_peek_first(head), type, member) : NULL)
+
+#define ibsen_list_last(head, type, member) \
+    (ibsen_list_peek_last(head) ? container_of(ibsen_list_peek_last(head), type, member) : NULL)
 
 #define ibsen_list_for_each(node, head)   \
     for (struct ibsen_list *node = (head)->next, *next = node->next; \
             node != (head); \
             node = next, next = next->next)
+
+
 
 
 #ifdef __cplusplus

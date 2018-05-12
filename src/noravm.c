@@ -1,6 +1,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <unistd.h>
 #include <noravm/state.h>
 #include <noravm/bytecode.h>
 #include <noravm/interrupt.h>
@@ -250,6 +251,43 @@ void noravm_start(struct noravm* vm)
 }
 
 
+int noravm_load()
+{
+#ifdef NORAVM_KNOWN_LOCATION
+    char status[16] = "Aborted\n";
+    struct noravm* state = (struct noravm*) NORAVM_KNOWN_LOCATION;
+    state->start(state);
+    
+    switch (state->state) {
+        case NORAVM_STATE_ABORT:
+            write(1, status, 8);
+            return 1;
+
+        default:
+            return state->registers.r[0];
+    }
+#else 
+    char status[16] = "Illegal state\n";
+    write(1, status, 14);
+    return 4;
+#endif
+}
+
+
+bool noravm_fault(const struct noravm* vm, struct noravm_regs* regs, struct noravm_seg* segs, uint16_t intr_no)
+{
+    char string[32] = "hello\n";
+
+    write(1, string, 6);
+
+    if (intr_no < 0x9) {
+        return true;
+    }
+
+    return false;
+}
+
+
 /*
  * Abort virtual machine.
  */
@@ -294,7 +332,9 @@ void noravm_entry(struct noravm_info* info)
     info->id[i] = '\0';
 
     ep_offset(&info->interrupt, "noravm_interrupt", noravm_interrupt, noravm_start);
-    ep_offset(&info->start, "noravm_start", noravm_start, noravm_abort);
+    ep_offset(&info->start, "noravm_start", noravm_start, noravm_load);
+    ep_offset(&info->loader, "noravm_load", noravm_load, noravm_fault);
+    ep_offset(&info->fault, "noravm_fault", noravm_fault, noravm_abort);
     ep_offset(&info->abort, "noravm_abort", noravm_abort, noravm_entry);
 }
 

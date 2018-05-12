@@ -28,7 +28,9 @@ struct __attribute__((aligned (16))) noravm_info
 {
     char                id[16];     // Identifier string
     struct noravm_ep    interrupt;  // Interrupt routine
-    struct noravm_ep    start;      // Launch virtual machine
+    struct noravm_ep    start;      // Start virtual machine
+    struct noravm_ep    loader;     // Launch virtual machine
+    struct noravm_ep    fault;      // Fault handler
     struct noravm_ep    abort;      // Abort the virtual machine
 };
 
@@ -39,10 +41,7 @@ struct __attribute__((aligned (16))) noravm_info
 void noravm_entry(struct noravm_info* info);
 
 
-/*
- * Launch the Nora virtual machine.
- */
-void noravm_start(struct noravm* vm);
+typedef void (*noravm_start_t)(struct noravm*);
 
 
 #ifdef __cplusplus
