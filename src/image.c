@@ -215,16 +215,16 @@ int ibsen_create_macos_image(struct ibsen_image** handle, const struct noravm_in
 
     // Make lower 2 GB inaccessible
     struct ibsen_segment* null_segment;
-    err = add_segment(&null_segment, image, SEGMENT_NULL, 0x80000000);
+    err = add_segment(&null_segment, image, SEGMENT_NULL, 4ULL << 30);
     if (err != 0) {
         ibsen_destroy_image(image);
         return err;
     }
 
     // Create segment containing the virtual machine code
-    size_t vm_code_size = vm_info->start.size + vm_info->interrupt.size + vm_info->fault.size;
+    size_t vm_code_size = vm_info->start.size + vm_info->interrupt.size + vm_info->fault.size + vm_info->loader.size;
     struct ibsen_segment* vm_code;
-    err = add_segment(&vm_code, image, SEGMENT_CODE, ALIGN(vm_code_size, 1ULL << 20));
+    err = add_segment(&vm_code, image, SEGMENT_CODE, ALIGN(vm_code_size, 1ULL << 30));
     if (err != 0) {
         ibsen_destroy_image(image);
         return err;
@@ -239,7 +239,8 @@ int ibsen_create_macos_image(struct ibsen_image** handle, const struct noravm_in
     // Create segment containing the virtual machine data
     size_t page_size = sysconf(_SC_PAGESIZE);
     struct ibsen_segment* vm_data;
-    err = add_segment(&vm_data, image, SEGMENT_DATA, (1ULL << 30) * NORAVM_MAX_SEGS + page_size);
+    //err = add_segment(&vm_data, image, SEGMENT_DATA, (1ULL << 30) * NORAVM_MAX_SEGS + page_size);
+    err = add_segment(&vm_data, image, SEGMENT_DATA, (1ULL << 30) * NORAVM_MAX_SEGS);
     if (err != 0) {
         ibsen_destroy_image(image);
         return err;

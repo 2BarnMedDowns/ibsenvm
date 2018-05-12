@@ -41,6 +41,7 @@ static struct segment_command_64* create_segment(struct mach_header_64* mh, bool
     struct section_64* section = (struct section_64*) (((unsigned char*) segment) + sizeof(struct segment_command_64));
     section->addr = 0;
     section->size = 0;
+    section->offset = 0;
     section->align = 0;
     section->reloff = 0;
     section->nreloc = 0;
@@ -82,15 +83,17 @@ static int set_segment(struct segment_command_64* lc_seg, struct ibsen_segment* 
 
     lc_seg->vmaddr = segment->vm_addr;
     lc_seg->vmsize = segment->vm_size;
-    lc_seg->fileoff = header_offset + segment->file_start;
-    lc_seg->filesize = segment->file_size;
 
     if (lc_seg->nsects > 0) {
         struct section_64* lc_sect = (struct section_64*) (((char*) lc_seg) + sizeof(struct segment_command_64));
 
+        lc_seg->fileoff = header_offset + segment->file_start;
+        lc_seg->filesize = segment->file_size;
+
         strcpy(lc_sect->segname, lc_seg->segname);
         lc_sect->addr = lc_seg->vmaddr;
         lc_sect->size = lc_seg->filesize;
+        lc_sect->offset = header_offset + segment->file_start;
         lc_sect->align = 4;
 
         switch (segment->type) {
@@ -103,7 +106,8 @@ static int set_segment(struct segment_command_64* lc_seg, struct ibsen_segment* 
             default:
                 // S_ZEROFILL ?
                 strcpy(lc_sect->sectname, SECT_DATA);
-                lc_sect->flags = S_REGULAR;
+                //lc_sect->flags = S_REGULAR;
+                lc_sect->flags = S_ZEROFILL;
                 break;
         }
     }
@@ -210,7 +214,6 @@ int ibsen_write_macho(FILE* fp, struct ibsen_image* image, const void* bytecode)
         size_t num_sects = ibsen_list_count(&segment->sections);
         segment_cmds[curr_segment] = NULL;
 
-        if (segment->type != SEGMENT_CODE) {
         segment_cmds[curr_segment] = create_segment(&header, num_sects > 0);
         if (segment_cmds[curr_segment] == NULL) {
             for (size_t i = 0; i < curr_segment; ++i) {
@@ -219,12 +222,12 @@ int ibsen_write_macho(FILE* fp, struct ibsen_image* image, const void* bytecode)
             free(dy_cmds);
             return ENOMEM;
         }
-        }
 
         ++curr_segment;
     }
 
     // Create empty linkedit segment
+    segment_cmds[curr_segment] = NULL;
     segment_cmds[curr_segment] = create_segment(&header, false);
     if (segment_cmds[curr_segment] == NULL) {
         for (size_t i = 0; i < curr_segment; ++i) {
@@ -244,7 +247,7 @@ int ibsen_write_macho(FILE* fp, struct ibsen_image* image, const void* bytecode)
     header.sizeofcmds += ep.cmdsize;
     
     // Set correct offset into file
-    //segment_cmds[num_segments - 1]->fileoff = sizeof(header) + header.sizeofcmds + image->file_size;
+    segment_cmds[num_segments - 1]->fileoff = sizeof(header) + header.sizeofcmds + image->file_size;
     ep.entryoff = sizeof(header) + header.sizeofcmds + image->ep_file_offset;
 
     // Write header to file
