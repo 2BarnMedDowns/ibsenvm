@@ -223,7 +223,7 @@ int noravm_image_set_vm_data_size(struct noravm_image* image, size_t data_size)
     }
 
     struct noravm_segment* data = NULL;
-    err = noravm_image_add_segment(&data, image, NORAVM_SEG_DATA, pagesize, data_size);
+    err = noravm_image_add_segment(&data, image, NORAVM_SEG_DATA, pagesize, data_size + pagesize);
     if (err != 0) {
         return err;
     }
@@ -237,7 +237,7 @@ int noravm_image_set_vm_data_size(struct noravm_image* image, size_t data_size)
     image->noravm_entry.data_addr = vm_data_struct->segment->vm_start + vm_data_struct->vm_offset_to_seg;
     
     struct noravm_section* vm_memory = NULL;
-    err = noravm_image_add_section(&vm_memory, data, NORAVM_SECT_DATA, pagesize, 0, NULL, data_size - pagesize);
+    err = noravm_image_add_section(&vm_memory, data, NORAVM_SECT_DATA, pagesize, 0, NULL, data_size);
     if (err != 0) {
         return err;
     }
