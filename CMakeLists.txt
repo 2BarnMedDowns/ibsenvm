@@ -7,12 +7,12 @@ set (CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wall -Wextra -g -DDEBUG")
 set (CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O2")
 
 # Set source files
-set (noravm_source "${PROJECT_SOURCE_DIR}/src/noravm.c")
+set (noravm_source "${PROJECT_SOURCE_DIR}/src/vm.c")
 file (GLOB source "${PROJECT_SOURCE_DIR}/src/*.c")
 
 if (NOT APPLE)
 	message (STATUS "loonix")
-	list (REMOVE_ITEM source "${PROJECT_SOURCE_DIR}/src/macho.c")
+    list (REMOVE_ITEM source "${PROJECT_SOURCE_DIR}/src/macho.c")
 else ()
 	message(STATUS "applel")
 	list (REMOVE_ITEM source "${PROJECT_SOURCE_DIR}/src/elf.c")
@@ -23,10 +23,10 @@ include_directories ("${PROJECT_BINARY_DIR}/include" "${PROJECT_SOURCE_DIR}/incl
 
 # Create Nora VM module
 add_library(noravm MODULE ${noravm_source})
-target_compile_definitions (noravm PRIVATE NORAVM_VERSION="noravm-${PROJECT_VERSION}")
-target_link_libraries (noravm INTERFACE "-nostdlib")
+target_compile_definitions (noravm PRIVATE NORAVM_ID_STRING="noravm-${PROJECT_VERSION}" NORAVM_ENTRY_ADDR=0)
 
 
-# Create Ibsen compiler
-add_executable (ibsen "${source}")
-target_compile_definitions (ibsen PRIVATE IBSEN_VERSION="${PROJECT_VERSION}" NORAVM_VERSION="ibsen-${PROJECT_VERSION}")
+# Create test executable
+add_executable (test "${source}")
+target_compile_definitions (test PRIVATE IBSEN_VERSION="${PROJECT_VERSION}" NORAVM_ID_STRING="ibsen-${PROJECT_VERSION}" NORAVM_ENTRY_ADDR=0x1000000ULL)
+

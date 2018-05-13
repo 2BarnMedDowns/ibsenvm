@@ -5,9 +5,9 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#include <ibsen/list.h>
-#include <ibsen/macho.h>
-#include <ibsen/image.h>
+#include <noravm_list.h>
+#include <noravm_image.h>
+#include <noravm_macho.h>
 #include <mach-o/loader.h>
 
 
@@ -18,9 +18,9 @@ static size_t write_load_command(FILE* fp, void* cmd)
 
 
 
-static struct segment_command_64* create_segment(struct mach_header_64* mh, bool has_section)
+static struct segment_command_64* create_segment(struct mach_header_64* mh, struct noravm_segment* seg)
 {
-    size_t size = sizeof(struct segment_command_64) + sizeof(struct section_64) * !!has_section;
+    size_t size = sizeof(struct segment_command_64) + sizeof(struct section_64) * (seg != NULL && !noravm_list_empty(&seg->sections));
     struct segment_command_64* segment = malloc(size);
     if (segment == NULL) {
         return NULL;
@@ -35,20 +35,22 @@ static struct segment_command_64* create_segment(struct mach_header_64* mh, bool
     segment->filesize = 0;
     segment->maxprot = VM_PROT_NONE;
     segment->initprot = VM_PROT_NONE;
-    segment->nsects = !!has_section;
+    segment->nsects = seg != NULL && !noravm_list_empty(&seg->sections);
     segment->flags = 0;
 
-    struct section_64* section = (struct section_64*) (((unsigned char*) segment) + sizeof(struct segment_command_64));
-    section->addr = 0;
-    section->size = 0;
-    section->offset = 0;
-    section->align = 0;
-    section->reloff = 0;
-    section->nreloc = 0;
-    section->flags = 0;
-    section->reserved1 = 0;
-    section->reserved2 = 0;
-    section->reserved3 = 0;
+    if (segment->nsects == 1) {
+        struct section_64* section = (struct section_64*) (((unsigned char*) segment) + sizeof(struct segment_command_64));
+        section->addr = 0;
+        section->size = 0;
+        section->offset = 0;
+        section->align = 0;
+        section->reloff = 0;
+        section->nreloc = 0;
+        section->flags = 0;
+        section->reserved1 = 0;
+        section->reserved2 = 0;
+        section->reserved3 = 0;
+    }
 
     mh->ncmds += 1;
     mh->sizeofcmds += size;
@@ -57,21 +59,20 @@ static struct segment_command_64* create_segment(struct mach_header_64* mh, bool
 }
 
 
-static int set_segment(struct segment_command_64* lc_seg, struct ibsen_segment* segment, size_t header_offset)
+static int set_segment_properties(struct segment_command_64* lc_seg, struct noravm_segment* segment, size_t header_offset)
 {
     switch (segment->type) {
-        case SEGMENT_NULL:
+        case NORAVM_SEG_NULL:
             strcpy(lc_seg->segname, SEG_PAGEZERO);
             break;
 
-        case SEGMENT_CODE:
-        case SEGMENT_TEXT:
+        case NORAVM_SEG_CODE:
             strcpy(lc_seg->segname, SEG_TEXT);
             lc_seg->maxprot = VM_PROT_ALL; // I have no idea what I am doing
             lc_seg->initprot = VM_PROT_READ | VM_PROT_EXECUTE;
             break;
 
-        case SEGMENT_DATA:
+        case NORAVM_SEG_DATA:
             strcpy(lc_seg->segname, SEG_DATA);
             lc_seg->maxprot = VM_PROT_READ | VM_PROT_WRITE;
             lc_seg->initprot = VM_PROT_READ | VM_PROT_WRITE;
@@ -81,13 +82,13 @@ static int set_segment(struct segment_command_64* lc_seg, struct ibsen_segment* 
             return -1;
     }
 
-    lc_seg->vmaddr = segment->vm_addr;
+    lc_seg->vmaddr = segment->vm_start;
     lc_seg->vmsize = segment->vm_size;
 
     if (lc_seg->nsects > 0) {
         struct section_64* lc_sect = (struct section_64*) (((char*) lc_seg) + sizeof(struct segment_command_64));
 
-        lc_seg->fileoff = header_offset + segment->file_start;
+        lc_seg->fileoff = 0;/* header_offset + segment->file_start; */
         lc_seg->filesize = segment->file_size;
 
         strcpy(lc_sect->segname, lc_seg->segname);
@@ -97,8 +98,7 @@ static int set_segment(struct segment_command_64* lc_seg, struct ibsen_segment* 
         lc_sect->align = 4;
 
         switch (segment->type) {
-            case SEGMENT_CODE:
-            case SEGMENT_TEXT:
+            case NORAVM_SEG_CODE:
                 strcpy(lc_sect->sectname, SECT_TEXT);
                 lc_sect->flags = S_ATTR_PURE_INSTRUCTIONS | S_ATTR_SOME_INSTRUCTIONS;
                 break;
@@ -106,14 +106,15 @@ static int set_segment(struct segment_command_64* lc_seg, struct ibsen_segment* 
             default:
                 // S_ZEROFILL ?
                 strcpy(lc_sect->sectname, SECT_DATA);
-                //lc_sect->flags = S_REGULAR;
-                lc_sect->flags = S_ZEROFILL;
+                lc_sect->flags = S_REGULAR;
+                //lc_sect->flags = S_ZEROFILL;
                 break;
         }
     }
 
     return 0;
 }
+
 
 
 static size_t create_dynamic_stuff(struct mach_header_64* mh, void** handle)
@@ -185,8 +186,9 @@ static size_t create_dynamic_stuff(struct mach_header_64* mh, void** handle)
 }
 
 
-int ibsen_write_macho(FILE* fp, struct ibsen_image* image, const void* bytecode)
+int noravm_macho_write(FILE* fp, struct noravm_image* image, const void* bytecode)
 {
+
     struct mach_header_64 header;
     header.magic = MH_MAGIC_64;
     header.cputype = CPU_TYPE_X86_64;
@@ -205,16 +207,15 @@ int ibsen_write_macho(FILE* fp, struct ibsen_image* image, const void* bytecode)
     }
 
     // Create segments 
-    size_t num_segments = ibsen_list_count(&image->segments) + 1; // include linkedit segment
+    size_t num_segments = noravm_list_size(&image->segments) + 1; // include linkedit segment
     struct segment_command_64* segment_cmds[num_segments];
+    for (size_t i = 0; i < num_segments; ++i) {
+        segment_cmds[i] = NULL;
+    }
 
     size_t curr_segment = 0;
-    ibsen_list_for_each(seg_it, &image->segments) {
-        struct ibsen_segment* segment = container_of(seg_it, struct ibsen_segment, list);
-        size_t num_sects = ibsen_list_count(&segment->sections);
-        segment_cmds[curr_segment] = NULL;
-
-        segment_cmds[curr_segment] = create_segment(&header, num_sects > 0);
+    noravm_list_foreach(struct noravm_segment, segment, &image->segments) {
+        segment_cmds[curr_segment] = create_segment(&header, segment);
         if (segment_cmds[curr_segment] == NULL) {
             for (size_t i = 0; i < curr_segment; ++i) {
                 free(segment_cmds[i]);
@@ -228,7 +229,7 @@ int ibsen_write_macho(FILE* fp, struct ibsen_image* image, const void* bytecode)
 
     // Create empty linkedit segment
     segment_cmds[curr_segment] = NULL;
-    segment_cmds[curr_segment] = create_segment(&header, false);
+    segment_cmds[curr_segment] = create_segment(&header, NULL);
     if (segment_cmds[curr_segment] == NULL) {
         for (size_t i = 0; i < curr_segment; ++i) {
             free(segment_cmds[i]);
@@ -248,18 +249,16 @@ int ibsen_write_macho(FILE* fp, struct ibsen_image* image, const void* bytecode)
     
     // Set correct offset into file
     segment_cmds[num_segments - 1]->fileoff = sizeof(header) + header.sizeofcmds + image->file_size;
-    ep.entryoff = sizeof(header) + header.sizeofcmds + image->ep_file_offset;
+    ep.entryoff = sizeof(header) + header.sizeofcmds + image->noravm_file_offset;
 
     // Write header to file
     fwrite(&header, sizeof(header), 1, fp);
 
     // Write all segments to file
     curr_segment = 0;
-    ibsen_list_for_each(seg_it, &image->segments) {
-        struct ibsen_segment* segment = container_of(seg_it, struct ibsen_segment, list);
-
+    noravm_list_foreach(struct noravm_segment, segment, &image->segments) {
         if (segment_cmds[curr_segment] != NULL) {
-            set_segment(segment_cmds[curr_segment], segment, sizeof(header) + header.sizeofcmds);
+            set_segment_properties(segment_cmds[curr_segment], segment, sizeof(header) + header.sizeofcmds);
             write_load_command(fp, segment_cmds[curr_segment]);
         }
 
@@ -274,18 +273,16 @@ int ibsen_write_macho(FILE* fp, struct ibsen_image* image, const void* bytecode)
     write_load_command(fp, &ep);
 
     // Write data to file
-    ibsen_list_for_each(seg_it, &image->segments) {
-        struct ibsen_segment* segment = container_of(seg_it, struct ibsen_segment, list);
+    noravm_list_foreach(struct noravm_segment, segment, &image->segments) {
 
-        ibsen_list_for_each(sect_it, &segment->sections) {
-            struct ibsen_section* section = container_of(sect_it, struct ibsen_section, list);
+        noravm_list_foreach(struct noravm_section, section, &segment->sections) {
             const void* ptr = section->data;
 
-            if (ptr == NULL && section->type == SECTION_BC) {
+            if (ptr == NULL && section->type == NORAVM_SECT_BYTECODE) {
                 ptr = bytecode;
             }
 
-            fwrite(ptr, section->file_size, 1, fp);
+            fwrite(ptr, section->size, 1, fp);
 
             for (size_t i = 0; i < section->file_padding; ++i) {
                 fputc('\x00', fp);
@@ -300,4 +297,3 @@ int ibsen_write_macho(FILE* fp, struct ibsen_image* image, const void* bytecode)
 
     return 0;
 }
-
