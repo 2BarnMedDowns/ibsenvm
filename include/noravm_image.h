@@ -94,6 +94,7 @@ struct noravm_section
     struct noravm_list          list;               // Linked list node
     uint64_t                    vm_offset_to_seg;   // Relative offset to segment start
     uint64_t                    vm_offset_to_prev;  // Relative offset to previous section
+    size_t                      vm_align;           // Alignment
     size_t                      vm_size;            // Size of section in virtual memory
     size_t                      size;               // Size of data
     const void*                 data;               // Pointer to section data
@@ -151,7 +152,7 @@ int noravm_image_add_section(struct noravm_section** section,
  * Load the code of the Nora virtual machine in a segment,
  * creating the necessary sections.
  */
-int noravm_image_load_vm_entry(struct noravm_segment* segment,
+int noravm_image_load_vm_entry(struct noravm_image* image,
                                const struct noravm_functions* funcs,
                                size_t bytecode_size);
 

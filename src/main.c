@@ -31,13 +31,10 @@ int main(int argc, char** argv)
     int r = noravm_image_set_vm_data_size(image, 0x10000);
     fprintf(stderr, "%d\n", r);
 
-
-    struct noravm_segment* code;
-    noravm_image_add_segment(&code, image, NORAVM_SEG_NORAVM, 0x10000, 0x5000);
-    r = noravm_image_load_vm_entry(code, &funcs, 16);
+    r = noravm_image_load_vm_entry(image, &funcs, 16);
     fprintf(stderr, "%d\n", r);
 
-    FILE* fp = fopen(argv[1], "wb");
+    FILE* fp = fopen(argv[1], "w");
 
     noravm_macho_write(fp, image, string);
 
