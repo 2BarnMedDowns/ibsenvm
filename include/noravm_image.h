@@ -43,8 +43,7 @@ struct noravm_image
 enum noravm_segment_type
 {
     NORAVM_SEG_NULL,
-    NORAVM_SEG_TEXT,
-    NORAVM_SEG_CODE,
+    NORAVM_SEG_NORAVM,
     NORAVM_SEG_DATA
 };
 
@@ -78,8 +77,10 @@ struct noravm_segment
 enum noravm_section_type
 {
     NORAVM_SECT_DATA,
+    NORAVM_SECT_TEXT,
     NORAVM_SECT_CODE,
-    NORAVM_SECT_BYTECODE
+    NORAVM_SECT_BYTECODE,
+    NORAVM_SECT_BSS
 };
 
 
@@ -150,17 +151,16 @@ int noravm_image_add_section(struct noravm_section** section,
  * Load the code of the Nora virtual machine in a segment,
  * creating the necessary sections.
  */
-int noravm_image_vm_code(struct noravm_segment* segment,
-                         const struct noravm_functions* funcs);
+int noravm_image_load_vm_entry(struct noravm_segment* segment,
+                               const struct noravm_functions* funcs,
+                               size_t bytecode_size);
 
 
 
 /*
  * Reserve memory segment for virtual machine data.
  */
-int noravm_image_vm_data(struct noravm_segment* segment,
-                         size_t bytecode_size,
-                         size_t data_size);
+int noravm_image_set_vm_data_size(struct noravm_image* image, size_t data_size);
 
 #ifdef __cplusplus
 }

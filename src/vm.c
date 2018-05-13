@@ -17,8 +17,8 @@ void __noravm_interrupt(struct noravm_registers* regs, struct noravm_region** re
 void __noravm(struct noravm_data* vm)
 {
     // I hope this is inlined...
-    size_t len = *((unsigned char*) vm->mem_addr);
-    const char* str = ((const char*) vm->mem_addr) + 1;
+    size_t len = *((unsigned char*) vm->code_addr);
+    const char* str = ((const char*) vm->code_addr) + 1;
     write(1, str, len);
 
     vm->intr(NULL, NULL);
@@ -32,8 +32,7 @@ void __noravm_loader()
     struct noravm_data* data = (void*) ep->data_addr;
 
     data->intr = (noravm_interrupt_t) ep->intr_addr;
-    data->mem_addr = (void*) ep->mem_addr;
-    data->mem_size = ep->mem_size;
+    data->code_addr = (void*) ep->code_addr;
 
     void (*vm)(struct noravm_data*) = (void*) ep->machine_addr;
 

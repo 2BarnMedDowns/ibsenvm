@@ -11,23 +11,35 @@
 #include <mach-o/loader.h>
 
 
-static size_t write_load_command(FILE* fp, void* cmd)
+static size_t write_load_command(FILE* fp, const void* cmd)
 {
-    return fwrite(cmd, ((struct load_command*) cmd)->cmdsize, 1, fp);
+    return fwrite(cmd, ((const struct load_command*) cmd)->cmdsize, 1, fp);
 }
 
 
 
 static struct segment_command_64* create_segment(struct mach_header_64* mh, struct noravm_segment* seg)
 {
-    size_t size = sizeof(struct segment_command_64) + sizeof(struct section_64) * (seg != NULL && !noravm_list_empty(&seg->sections));
-    struct segment_command_64* segment = malloc(size);
+    size_t num_sects = 0;
+
+    if (seg != NULL) {
+        num_sects = noravm_list_size(&seg->sections);
+    }
+//    else if (seg != NULL && seg->type == NORAVM_SEG_NORAVM) {
+//        num_sects = 1;
+//    }
+
+//    if (seg != NULL && seg->type != NORAVM_SEG_NULL) {
+//        num_sects = 1;
+//    }
+   
+    struct segment_command_64* segment = malloc(sizeof(struct segment_command_64) + sizeof(struct section_64) * num_sects);
     if (segment == NULL) {
         return NULL;
     }
 
     segment->cmd = LC_SEGMENT_64;
-    segment->cmdsize = size;
+    segment->cmdsize = sizeof(struct segment_command_64) + sizeof(struct section_64) * num_sects;
 
     segment->vmaddr = 0;
     segment->vmsize = 0;
@@ -35,11 +47,12 @@ static struct segment_command_64* create_segment(struct mach_header_64* mh, stru
     segment->filesize = 0;
     segment->maxprot = VM_PROT_NONE;
     segment->initprot = VM_PROT_NONE;
-    segment->nsects = seg != NULL && !noravm_list_empty(&seg->sections);
+    segment->nsects = num_sects;
     segment->flags = 0;
 
-    if (segment->nsects == 1) {
-        struct section_64* section = (struct section_64*) (((unsigned char*) segment) + sizeof(struct segment_command_64));
+    struct section_64* sections = (struct section_64*) (((unsigned char*) segment) + sizeof(struct segment_command_64));
+    for (size_t i = 0; i < num_sects; ++i) {
+        struct section_64* section = &sections[i];
         section->addr = 0;
         section->size = 0;
         section->offset = 0;
@@ -52,8 +65,8 @@ static struct segment_command_64* create_segment(struct mach_header_64* mh, stru
         section->reserved3 = 0;
     }
 
-    mh->ncmds += 1;
-    mh->sizeofcmds += size;
+    mh->ncmds++;
+    mh->sizeofcmds += segment->cmdsize;
 
     return segment;
 }
@@ -66,7 +79,7 @@ static int set_segment_properties(struct segment_command_64* lc_seg, struct nora
             strcpy(lc_seg->segname, SEG_PAGEZERO);
             break;
 
-        case NORAVM_SEG_CODE:
+        case NORAVM_SEG_NORAVM:
             strcpy(lc_seg->segname, SEG_TEXT);
             lc_seg->maxprot = VM_PROT_ALL; // I have no idea what I am doing
             lc_seg->initprot = VM_PROT_READ | VM_PROT_EXECUTE;
@@ -85,29 +98,68 @@ static int set_segment_properties(struct segment_command_64* lc_seg, struct nora
     lc_seg->vmaddr = segment->vm_start;
     lc_seg->vmsize = segment->vm_size;
 
-    if (lc_seg->nsects > 0) {
-        struct section_64* lc_sect = (struct section_64*) (((char*) lc_seg) + sizeof(struct segment_command_64));
-
-        lc_seg->fileoff = 0;/* header_offset + segment->file_start; */
+    if (segment->type == NORAVM_SEG_NORAVM) {
+        //lc_seg->fileoff = header_offset + segment->file_start;
         lc_seg->filesize = segment->file_size;
+    }
+
+    struct section_64* lc_sects = (struct section_64*) (((char*) lc_seg) + sizeof(struct segment_command_64));
+
+    if (lc_seg->nsects == noravm_list_size(&segment->sections)) {
+        size_t i = 0;
+        noravm_list_foreach(struct noravm_section, section, &segment->sections) {
+            struct section_64* lc_sect = &lc_sects[i++];
+
+            strcpy(lc_sect->segname, lc_seg->segname);
+            lc_sect->addr = segment->vm_start + section->vm_offset_to_seg;
+            lc_sect->size = section->size;
+            lc_sect->align = 4;
+
+            switch (section->type) {
+                case NORAVM_SECT_CODE:
+                    strcpy(lc_sect->sectname, SECT_TEXT);
+                    lc_sect->flags = S_ATTR_PURE_INSTRUCTIONS | S_ATTR_SOME_INSTRUCTIONS;
+                    lc_sect->offset = header_offset + section->file_start;
+                    break;
+
+                case NORAVM_SECT_BYTECODE:
+                case NORAVM_SECT_TEXT:
+                    strcpy(lc_sect->sectname, SECT_TEXT);
+                    lc_sect->flags = S_REGULAR;
+                    lc_sect->offset = header_offset + section->file_start;
+                    break;
+
+                case NORAVM_SECT_BSS:
+                    strcpy(lc_sect->sectname, SECT_BSS);
+                    lc_sect->flags = S_ZEROFILL /* | S_GB_ZEROFILL */;
+                    break;
+
+                case NORAVM_SECT_DATA:
+                    strcpy(lc_sect->sectname, SECT_DATA);
+                    lc_sect->flags = S_ZEROFILL /* | S_GB_ZEROFILL */;
+                    break;
+            }
+        }
+    }
+    else {
+        struct section_64* lc_sect = lc_sects;
 
         strcpy(lc_sect->segname, lc_seg->segname);
-        lc_sect->addr = lc_seg->vmaddr;
-        lc_sect->size = lc_seg->filesize;
-        lc_sect->offset = header_offset + segment->file_start;
+        lc_sect->addr = segment->vm_start;
+        lc_sect->size = segment->vm_size;
         lc_sect->align = 4;
 
         switch (segment->type) {
-            case NORAVM_SEG_CODE:
+            case NORAVM_SEG_NORAVM:
                 strcpy(lc_sect->sectname, SECT_TEXT);
                 lc_sect->flags = S_ATTR_PURE_INSTRUCTIONS | S_ATTR_SOME_INSTRUCTIONS;
+                lc_sect->size = segment->file_size;
+                lc_sect->offset = header_offset + segment->file_start;
                 break;
 
             default:
-                // S_ZEROFILL ?
                 strcpy(lc_sect->sectname, SECT_DATA);
-                lc_sect->flags = S_REGULAR;
-                //lc_sect->flags = S_ZEROFILL;
+                lc_sect->flags = S_ZEROFILL;
                 break;
         }
     }
@@ -248,7 +300,7 @@ int noravm_macho_write(FILE* fp, struct noravm_image* image, const void* bytecod
     header.sizeofcmds += ep.cmdsize;
     
     // Set correct offset into file
-    segment_cmds[num_segments - 1]->fileoff = sizeof(header) + header.sizeofcmds + image->file_size;
+    //segment_cmds[num_segments - 1]->fileoff = sizeof(header) + header.sizeofcmds + image->file_size;
     ep.entryoff = sizeof(header) + header.sizeofcmds + image->noravm_file_offset;
 
     // Write header to file
@@ -282,7 +334,9 @@ int noravm_macho_write(FILE* fp, struct noravm_image* image, const void* bytecod
                 ptr = bytecode;
             }
 
-            fwrite(ptr, section->size, 1, fp);
+            if (ptr != NULL) {
+                fwrite(ptr, section->size, 1, fp);
+            }
 
             for (size_t i = 0; i < section->file_padding; ++i) {
                 fputc('\x00', fp);

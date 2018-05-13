@@ -28,5 +28,5 @@ target_compile_definitions (noravm PRIVATE NORAVM_ID_STRING="noravm-${PROJECT_VE
 
 # Create test executable
 add_executable (test "${source}")
-target_compile_definitions (test PRIVATE IBSEN_VERSION="${PROJECT_VERSION}" NORAVM_ID_STRING="ibsen-${PROJECT_VERSION}" NORAVM_ENTRY_ADDR=0x1000000ULL)
+target_compile_definitions (test PRIVATE IBSEN_VERSION="${PROJECT_VERSION}" NORAVM_ID_STRING="ibsen-${PROJECT_VERSION}" NORAVM_ENTRY_ADDR=0x100000000ULL)
 

@@ -166,8 +166,10 @@ struct __attribute__((aligned (16))) noravm_state
 struct __attribute__((aligned (16))) noravm_data
 {
     noravm_interrupt_t      intr;       // Address to the interrupt routine
-    void*                   mem_addr;   // Base memory address
-    size_t                  mem_size;   // Total size of memory segment
+    void*                   data_addr;  // Base address to data memory
+    size_t                  data_size;  // Total size of memory segment
+    void*                   code_addr;  // Address to byte code
+    size_t                  code_size;  // Size of bytecode
     uint8_t                 stack_idx;  // Current state stack pointer
     uint8_t                 stack_size; // Maximum depth of state stack
     struct noravm_list      regions;    // Memory regions
@@ -183,6 +185,8 @@ struct __attribute__((aligned (16))) noravm_entry_point
     char                    id[16];         // Identifier string
     size_t                  stack_size;     // Virtual machine state stack size
     uint64_t                data_addr;      // Pointer to virtual machine data
+    uint64_t                code_addr;      // Pointer to the bytecode
+    size_t                  code_size;      // Size of byte code
     uint64_t                mem_addr;       // Base memory address
     size_t                  mem_size;       // Size of memory segment
     uint64_t                machine_addr;   // Address to virtual machine

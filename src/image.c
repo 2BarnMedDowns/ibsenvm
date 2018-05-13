@@ -141,14 +141,16 @@ int noravm_image_add_section(struct noravm_section** handle,
     }
 
     // Adjust file pointers
-    struct noravm_image* image = segment->image;
-    section->file_start = image->file_size;
-    section->file_offset_to_seg = prev != NULL ? prev->file_offset_to_seg + prev->size + prev->file_padding : 0;
-    section->file_offset_to_prev = 0;
-    section->file_padding = NORAVM_ALIGN_ADDR(size, file_align) - size;
+    if (file_align > 0) {
+        struct noravm_image* image = segment->image;
+        section->file_start = image->file_size;
+        section->file_offset_to_seg = prev != NULL ? prev->file_offset_to_seg + prev->size + prev->file_padding : 0;
+        section->file_offset_to_prev = 0;
+        section->file_padding = NORAVM_ALIGN_ADDR(size, file_align) - size;
 
-    image->file_size += section->size + section->file_padding;
-    segment->file_size += section->size + section->file_padding;
+        image->file_size += section->size + section->file_padding;
+        segment->file_size += section->size + section->file_padding;
+    }
 
     if (handle != NULL) {
         *handle = section;
@@ -158,17 +160,28 @@ int noravm_image_add_section(struct noravm_section** handle,
 
 
 
-int noravm_image_vm_code(struct noravm_segment* segment, const struct noravm_functions* funcs)
+int noravm_image_load_vm_entry(struct noravm_segment* segment, const struct noravm_functions* funcs, size_t bytecode_size)
 {
     int err;
+
+    struct noravm_image* image = segment->image;
 
     long pagesize = sysconf(_SC_PAGESIZE);
     if (pagesize < 0) {
         return errno;
     }
 
+    strcpy(image->noravm_entry.id, funcs->id);
+
     struct noravm_section* loader = NULL;
     err = noravm_image_add_section(&loader, segment, NORAVM_SECT_CODE, pagesize, pagesize, (void*) funcs->loader.addr, funcs->loader.size);
+    if (err != 0) {
+        return err;
+    }
+    image->noravm_file_offset = loader->file_start;
+
+    struct noravm_section* entry_point = NULL;
+    err = noravm_image_add_section(&entry_point, segment, NORAVM_SECT_TEXT, pagesize, pagesize, &image->noravm_entry, sizeof(struct noravm_entry_point));
     if (err != 0) {
         return err;
     }
@@ -178,26 +191,29 @@ int noravm_image_vm_code(struct noravm_segment* segment, const struct noravm_fun
     if (err != 0) {
         return err;
     }
+    image->noravm_entry.machine_addr = machine->segment->vm_start + machine->vm_offset_to_seg;
 
     struct noravm_section* interrupt = NULL;
     err = noravm_image_add_section(&interrupt, segment, NORAVM_SECT_CODE, pagesize, pagesize, (void*) funcs->intr.addr, funcs->intr.size);
     if (err != 0) {
         return err;
     }
-
-    struct noravm_image* image = segment->image;
-    strcpy(image->noravm_entry.id, funcs->id);
-    image->noravm_entry.machine_addr = machine->segment->vm_start + machine->vm_offset_to_seg;
     image->noravm_entry.intr_addr = interrupt->segment->vm_start + interrupt->vm_offset_to_seg;
 
-    image->noravm_file_offset = loader->file_start;
-
+    struct noravm_section* code = NULL;
+    err = noravm_image_add_section(&code, segment, NORAVM_SECT_BYTECODE, pagesize, pagesize, NULL, bytecode_size);
+    if (err != 0) {
+        return err;
+    }
+    image->noravm_entry.code_addr = code->segment->vm_start + code->vm_offset_to_seg;
+    image->noravm_entry.code_size = code->size;
+   
     return 0;
 }
 
 
 
-int noravm_image_vm_data(struct noravm_segment* segment, size_t bytecode_size, size_t data_size)
+int noravm_image_set_vm_data_size(struct noravm_image* image, size_t data_size)
 {
     int err;
 
@@ -206,31 +222,27 @@ int noravm_image_vm_data(struct noravm_segment* segment, size_t bytecode_size, s
         return errno;
     }
 
-    struct noravm_image* image = segment->image;
-
-    struct noravm_section* entry_point = NULL;
-    err = noravm_image_add_section(&entry_point, segment, NORAVM_SECT_DATA, pagesize, pagesize, &image->noravm_entry, sizeof(struct noravm_entry_point));
-    if (err != 0) {
-        return err;
-    }
-   
-    struct noravm_section* vm_data = NULL;
-    err = noravm_image_add_section(&vm_data, segment, NORAVM_SECT_DATA, pagesize, pagesize, NULL, 0);
+    struct noravm_segment* data = NULL;
+    err = noravm_image_add_segment(&data, image, NORAVM_SEG_DATA, pagesize, data_size);
     if (err != 0) {
         return err;
     }
 
+    struct noravm_section* vm_data_struct = NULL;
+    err = noravm_image_add_section(&vm_data_struct, data, NORAVM_SECT_BSS, pagesize, 0, NULL, pagesize);
+    if (err != 0) {
+        return err;
+    }
     image->noravm_entry.stack_size = 32 * sizeof(struct noravm_state);
-    image->noravm_entry.data_addr = vm_data->segment->vm_start + vm_data->vm_offset_to_seg;
-
-    struct noravm_section* code = NULL;
-    err = noravm_image_add_section(&code, segment, NORAVM_SECT_BYTECODE, data_size, pagesize, NULL, bytecode_size);
+    image->noravm_entry.data_addr = vm_data_struct->segment->vm_start + vm_data_struct->vm_offset_to_seg;
+    
+    struct noravm_section* vm_memory = NULL;
+    err = noravm_image_add_section(&vm_memory, data, NORAVM_SECT_DATA, pagesize, 0, NULL, data_size - pagesize);
     if (err != 0) {
         return err;
     }
-    
-    image->noravm_entry.mem_addr = code->segment->vm_start + code->vm_offset_to_seg;
-    image->noravm_entry.mem_size = code->vm_size;
+    image->noravm_entry.mem_addr = vm_memory->segment->vm_start + vm_memory->vm_offset_to_seg;
+    image->noravm_entry.mem_size = vm_memory->vm_size;
     
     return 0;
 }
