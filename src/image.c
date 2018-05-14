@@ -203,17 +203,24 @@ int noravm_image_load_vm(struct noravm_image* image, const struct noravm_functio
     memcpy(vmptr, (void*) funcs->vm.addr, funcs->vm.size);
     unsigned char* intrptr = vmptr + NORAVM_ALIGN_ADDR(funcs->vm.size, align);
     memcpy(intrptr, (void*) funcs->intr.addr, funcs->intr.size);
-    
 
-    // FIXME: hack
-    loaderptr[0] = 0x48;
-    loaderptr[1] = 0xc7; 
-    loaderptr[2] = 0xc0;
-    loaderptr[3] = 0x03;
-    loaderptr[4] = 0x00;
-    loaderptr[5] = 0x00;
-    loaderptr[6] = 0x00;
-    loaderptr[7] = 0xc3;
+//    // FIXME: hack
+//    loaderptr[0] = 0x48;
+//    loaderptr[1] = 0xc7; 
+//    loaderptr[2] = 0xc0;
+//    loaderptr[3] = 0x3c;
+//    loaderptr[4] = 0x00;
+//    loaderptr[5] = 0x00;
+//    loaderptr[6] = 0x00;
+//    loaderptr[7] = 0x48;
+//    loaderptr[8] = 0xc7;
+//    loaderptr[9] = 0xc7;
+//    loaderptr[10] = 0x02;
+//    loaderptr[11] = 0;
+//    loaderptr[12] = 0;
+//    loaderptr[13] = 0;
+//    loaderptr[14] = 0x0f;
+//    loaderptr[15] = 0x05;
 
 
     // Create code segment
@@ -273,6 +280,12 @@ int noravm_image_reserve_vm_data(struct noravm_image* image, size_t data_size, s
     if (err != 0) {
         return err;
     }
+    
+    struct noravm_section* vm_memory = NULL;
+    err = noravm_image_add_section(&vm_memory, data, NORAVM_SECT_BYTECODE, pagesize, pagesize, NULL, bytecode_size);
+    if (err != 0) {
+        return err;
+    }
 
     struct noravm_section* vm_data_struct = NULL;
     err = noravm_image_add_section(&vm_data_struct, data, NORAVM_SECT_BSS, pagesize, 0, NULL, state_size);
@@ -281,12 +294,6 @@ int noravm_image_reserve_vm_data(struct noravm_image* image, size_t data_size, s
     }
     image->noravm_entry.stack_size = stack_size;
     image->noravm_entry.data_addr = vm_data_struct->segment->vm_start + vm_data_struct->vm_offset_to_seg;
-    
-    struct noravm_section* vm_memory = NULL;
-    err = noravm_image_add_section(&vm_memory, data, NORAVM_SECT_BYTECODE, pagesize, pagesize, NULL, bytecode_size);
-    if (err != 0) {
-        return err;
-    }
 
     image->noravm_entry.mem_addr = vm_memory->segment->vm_start + vm_memory->vm_offset_to_seg;
     image->noravm_entry.mem_size = vm_memory->vm_size;

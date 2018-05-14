@@ -26,21 +26,9 @@ int main(int argc, char** argv)
     const char* string = "\x0eHello, world!\n";
 
     struct noravm_image* image;
-    result = noravm_image_create(&image, NORAVM_ENTRY_ADDR);
+    result = noravm_image_create(&image, 4ULL << 20);
     if (result != 0) {
         fprintf(stderr, "Failed to create image: %s\n", strerror(result));
-        return result;
-    }
-
-//    result = noravm_image_add_segment(NULL, image, NORAVM_SEG_NULL, 1ULL << 30, NORAVM_ENTRY_ADDR);
-//    if (result != 0) {
-//        fprintf(stderr, "Add segment: %s\n", strerror(result));
-//        return result;
-//    }
-
-    result = noravm_image_reserve_vm_data(image, 0x100000, 32, 8);
-    if (result != 0) {
-        fprintf(stderr, "Failed to reserve VM memory for data: %s\n", strerror(result));
         return result;
     }
 
@@ -49,6 +37,18 @@ int main(int argc, char** argv)
         fprintf(stderr, "Failed to load VM code: %s\n", strerror(result));
         return result;
     }
+
+//    result = noravm_image_add_segment(NULL, image, NORAVM_SEG_NULL, 1ULL << 30, NORAVM_ENTRY_ADDR - (1ULL << 30));
+//    if (result != 0) {
+//        fprintf(stderr, "Add segment: %s\n", strerror(result));
+//        return result;
+//    }
+
+//    result = noravm_image_reserve_vm_data(image, 0x100000, 32, 8);
+//    if (result != 0) {
+//        fprintf(stderr, "Failed to reserve VM memory for data: %s\n", strerror(result));
+//        return result;
+//    }
 
     FILE* fp = fopen(argv[1], "w");
     if (fp == NULL) {
