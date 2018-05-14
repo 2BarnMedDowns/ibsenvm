@@ -151,7 +151,7 @@ enum
 /*
  * Virtual machine state.
  */
-struct __attribute__((aligned (16))) noravm_state
+struct __attribute__((aligned (32))) noravm_state
 {
     struct noravm_registers     regs;       // Registers
     struct noravm_instruction   instr;      // Current instruction
