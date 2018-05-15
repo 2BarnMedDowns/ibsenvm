@@ -99,15 +99,19 @@ int noravm_elf_write(FILE* fp, const struct noravm_image* image, const void* byt
     noravm_list_foreach(const struct noravm_segment, segment, &image->segments) {
 
         noravm_list_foreach(const struct noravm_section, section, &segment->sections) {
-            const void* ptr = section->data;
+            const void* ptr = NULL;
 
-            if (ptr == NULL && section->type == NORAVM_SECT_BYTECODE) {
-                ptr = bytecode;
+            switch (section->type) {
+                case NORAVM_SECT_BYTECODE:
+                    ptr = bytecode;
+                    break;
+
+                default:
+                    ptr = section->data;
+                    break;
             }
 
-            if (ptr != NULL) {
-                fwrite(ptr, section->size, 1, fp);
-            }
+            fwrite(ptr, section->size, 1, fp);
 
             for (size_t i = 0; i < section->file_padding; ++i) {
                 fputc('\x00', fp);
