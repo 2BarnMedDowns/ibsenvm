@@ -33,7 +33,7 @@ struct __attribute__((aligned (16))) noravm_region
 {
     struct noravm_list          list;       // List node
     uint64_t                    vm_addr;    // VM virtual address of region (virtual to the virtual machine)
-    void*                       addr;       // Virtual address of the region (physical to the virtual machine)
+    void*                       ph_addr;    // Virtual address of the region (physical to the virtual machine)
     size_t                      size;       // Size of the region
     uint32_t                    flags;      // Region flags
 };
@@ -49,8 +49,7 @@ enum
     NORAVM_INTR_READ                = 0x2,  // Read syscall
     NORAVM_INTR_REGION              = 0x3,  // Retrieve information about the current memory region
     NORAVM_INTR_ARITHMETIC_ERROR    = 0x7,  // Arithmetical error, e.g. division by zero
-    NORAVM_INTR_REGION_NOT_PRESENT  = 0x8,  // Memory region must be loaded
-    NORAVM_INTR_REGION_FAULT        = 0x9,  // Virtual machine has accessed memory beyond bounds (page fault)
+    NORAVM_INTR_REGION_FAULT        = 0x9,  // Virtual machine memory region is not present
     NORAVM_INTR_INVALID_OPCODE      = 0xa,  // Malformed instruction
     NORAVM_INTR_PROTECTION_FAULT    = 0xb,  // Illegal memory operation
     NORAVM_INTR_OUT_OF_BOUNDS       = 0xc,  // Trying to access memory outside virtual memory segment
@@ -166,10 +165,8 @@ struct __attribute__((aligned (32))) noravm_state
 struct __attribute__((aligned (16))) noravm_data
 {
     noravm_interrupt_t      intr;       // Address to the interrupt routine
-    void*                   data_addr;  // Base address to data memory
-    size_t                  data_size;  // Total size of memory segment
-    void*                   code_addr;  // Address to byte code
-    size_t                  code_size;  // Size of bytecode
+    void*                   addr;       // Base address to data memory
+    size_t                  size;       // Total size of memory segment
     uint8_t                 stack_idx;  // Current state stack pointer
     uint8_t                 stack_size; // Maximum depth of state stack
     struct noravm_list      regions;    // Memory regions
@@ -183,10 +180,10 @@ struct __attribute__((aligned (16))) noravm_data
 struct __attribute__((aligned (16))) noravm_entry_point
 {
     char                    id[16];         // Identifier string
+    size_t                  region_size;    // Page size
     size_t                  stack_size;     // Virtual machine state stack size
     uint64_t                data_addr;      // Pointer to virtual machine state data
-    uint64_t                code_addr;      // Pointer to the bytecode
-    size_t                  code_size;      // Size of byte code
+    size_t                  data_size;      // Data size
     uint64_t                mem_addr;       // Base memory address
     size_t                  mem_size;       // Size of memory segment
     uint64_t                machine_addr;   // Address to virtual machine

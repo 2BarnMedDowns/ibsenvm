@@ -5,7 +5,6 @@ extern "C" {
 #endif
 
 #include <stddef.h>
-#include <stdbool.h>
 
 
 /*
@@ -21,87 +20,71 @@ struct noravm_list
 /*
  * Initialize list head/node.
  */
-static inline void noravm_list_init(struct noravm_list* head)
-{
-    head->next = head;
-    head->prev = head;
-}
+#define noravm_list_init(head) \
+    do { \
+        (head)->next = (head); \
+        (head)->prev = (head); \
+    } while (0) 
 
 
 /*
  * Check if the list is empty.
  */
-static inline bool noravm_list_empty(const struct noravm_list* head)
-{
-    return head->next == head;
-}
+#define noravm_list_empty(head) \
+    ((head)->next == (head))
 
-
-/*
- * Count the number of entries in list.
- */
-static inline size_t noravm_list_size(const struct noravm_list* head)
-{
-    size_t count = 0;
-    const struct noravm_list* curr = head->next;
-
-    while (curr != head) {
-        ++count;
-        curr = curr->next;
-    }
-
-    return count;
-}
 
 
 /*
  * Remove entry from list.
  */
-static inline void noravm_list_remove_entry(struct noravm_list* entry)
-{
-    entry->prev->next = entry->next;
-    entry->next->prev = entry->prev;
-    entry->next = entry;
-    entry->prev = entry;
-}
+#define noravm_list_remove_entry(entry) \
+    do { \
+        (entry)->prev->next = (entry)->next; \
+        (entry)->next->prev = (entry)->prev; \
+        (entry)->next = (entry); \
+        (entry)->prev = (entry); \
+    } while (0)
 
 
 /*
  * Insert entry to back of the list.
  */
-static inline void noravm_list_push_back(struct noravm_list* head, struct noravm_list* entry)
-{
-    struct noravm_list* tail = head->prev;
-    tail->next = entry;
-    entry->prev = tail;
-    head->prev = entry;
-    entry->next = head;
-}
+#define noravm_list_push_back(head, entry) \
+    do { \
+        struct noravm_list* tail = (head)->prev; \
+        tail->next = (entry); \
+        (entry)->prev = tail; \
+        (head)->prev = (entry); \
+        (entry)->next = (head); \
+    } while (0)
 
 
 /*
  * Insert entry to front of the list.
  */
-static inline void noravm_list_push_front(struct noravm_list* head, struct noravm_list* entry)
-{
-    struct noravm_list* first = head->next;
-    first->prev = entry;
-    entry->next = first;
-    head->next = entry;
-    entry->prev = head;
-}
+#define noravm_list_push_front(head, entry) \
+    do { \
+        struct noravm_list* first = (head)->next; \
+        first->prev = (entry); \
+        (entry)->next = first; \
+        (head)->next = (entry); \
+        (entry)->prev = (head); \
+    } while (0)
 
 
-static inline struct noravm_list* noravm_list_front(const struct noravm_list* head)
-{
-    return head->next != head ? head->next : NULL;
-}
+/*
+ * Get first element of list.
+ */
+#define noravm_list_front(head) \
+    ( (head)->next != (head) ? (head)->next : NULL )
 
 
-static inline struct noravm_list* noravm_list_back(const struct noravm_list* head)
-{
-    return head->prev != head ? head->prev : NULL;
-}
+/*
+ * Get last element of list.
+ */
+#define noravm_list_back(head) \
+    ( (head)->prev != (head) ? (head)->prev : NULL )
 
 
 #define __entry(type, ptr) \

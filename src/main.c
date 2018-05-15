@@ -26,7 +26,7 @@ int main(int argc, char** argv)
     const char* string = "\x0eHello, world!\n";
 
     struct noravm_image* image;
-    result = noravm_image_create(&image, 0x400000);
+    result = noravm_image_create(&image, 0x400000, 32, NORAVM_MEM_PAGE_SIZE);
     if (result != 0) {
         fprintf(stderr, "Failed to create image: %s\n", strerror(result));
         return result;
@@ -38,7 +38,7 @@ int main(int argc, char** argv)
         return result;
     }
 
-    result = noravm_image_reserve_vm_data(image, NORAVM_MEM_ADDR, NORAVM_MEM_SIZE, 32, 8);
+    result = noravm_image_reserve_vm_data(image, NORAVM_MEM_ADDR, NORAVM_MEM_TOTAL_SIZE, 8);
     if (result != 0) {
         fprintf(stderr, "Failed to reserve VM memory for data: %s\n", strerror(result));
         return result;

@@ -164,6 +164,7 @@ int noravm_elf_write(FILE* fp, const struct noravm_image* image, const void* byt
                     break;
 
                 case NORAVM_SECT_CONST:
+                case NORAVM_SECT_ENTRY_INFO:
                     shdr.sh_type = SHT_PROGBITS;
                     shdr.sh_flags = SHF_ALLOC;
                     break;

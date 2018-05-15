@@ -80,6 +80,7 @@ enum noravm_section_type
     NORAVM_SECT_CODE,
     NORAVM_SECT_BYTECODE,
     NORAVM_SECT_BSS,
+    NORAVM_SECT_ENTRY_INFO,
     NORAVM_SECT_CONST
 };
 
@@ -108,7 +109,10 @@ struct noravm_section
 /*
  * Allocate a new image structure.
  */
-int noravm_image_create(struct noravm_image** image, uint64_t start_addr);
+int noravm_image_create(struct noravm_image** image, 
+                        uint64_t start_addr,
+                        size_t vm_stack_size,
+                        size_t vm_region_size);
 
 
 /*
@@ -158,7 +162,6 @@ int noravm_image_load_vm(struct noravm_image* image,
 int noravm_image_reserve_vm_data(struct noravm_image* image, 
                                  uint64_t data_addr,
                                  size_t data_size, 
-                                 size_t stack_entries,
                                  size_t bytecode_size);
 
 #ifdef __cplusplus
