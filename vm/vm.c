@@ -33,9 +33,8 @@ void __noravm_loader(void)
 
     // Get pointer to zeroed out machine state
     void (*vm)(struct noravm_data*) = (void*) ep->machine_addr;
-    
 
-    // Never return
+    // Return value in R00
     __asm__ volatile (
             "syscall"
             : /* no output */

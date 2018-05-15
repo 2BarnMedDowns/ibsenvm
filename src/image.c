@@ -47,17 +47,24 @@ static void noravm_image_remove_segment(struct noravm_segment* segment)
 
 int noravm_image_create(struct noravm_image** handle, uint64_t start_addr)
 {
+    long pagesize = sysconf(_SC_PAGESIZE);
+    if (pagesize < 1) {
+        return errno;
+    }
+
     struct noravm_image* image = malloc(sizeof(struct noravm_image));
     if (image == NULL) {
         return errno;
     }
 
     memset(image->noravm_entry.id, 0, sizeof(image->noravm_entry));
+    image->noravm_entry.data_addr = 0;
+    image->noravm_entry.code_addr = 0;
+    image->noravm_entry.code_size = 0;
     image->noravm_entry.mem_addr = 0;
     image->noravm_entry.mem_size = 0;
     image->noravm_entry.machine_addr = 0;
     image->noravm_entry.intr_addr = 0;
-
 
     noravm_list_init(&image->segments);
     image->noravm_file_offset = 0;
@@ -66,6 +73,7 @@ int noravm_image_create(struct noravm_image** handle, uint64_t start_addr)
     image->num_segments = 0;
     image->num_sections = 0;
     image->vm_code = NULL;
+    image->page_size = pagesize;
 
     *handle = image;
     return 0;
@@ -155,7 +163,6 @@ int noravm_image_add_section(struct noravm_section** handle,
     }
 
     struct noravm_image* image = segment->image;
-    section->file_start = image->file_size;
     section->file_offset_to_seg = prev != NULL ? prev->file_offset_to_seg + prev->size + prev->file_padding : 0;
     section->file_offset_to_prev = 0;
 
@@ -183,11 +190,7 @@ int noravm_image_load_vm(struct noravm_image* image, const struct noravm_functio
 {
     int err;
 
-    long pagesize = sysconf(_SC_PAGESIZE);
-    if (pagesize < 0) {
-        return errno;
-    }
-
+    size_t pagesize = image->page_size;
     size_t size = NORAVM_ALIGN_ADDR(funcs->loader.size, code_align) 
         + NORAVM_ALIGN_ADDR(funcs->vm.size, code_align) 
         + NORAVM_ALIGN_ADDR(funcs->intr.size, code_align);
@@ -241,11 +244,7 @@ int noravm_image_reserve_vm_data(struct noravm_image* image, uint64_t data_addr,
 {
     int err;
 
-    long pagesize = sysconf(_SC_PAGESIZE);
-    if (pagesize < 0) {
-        return errno;
-    }
-
+    size_t pagesize = image->page_size;
     size_t stack_size = stack_entries * sizeof(struct noravm_state);
     size_t state_size = sizeof(struct noravm_data) + stack_size;
 

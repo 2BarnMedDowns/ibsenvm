@@ -12,19 +12,24 @@
 
 
 
-int noravm_elf_write(FILE* fp, struct noravm_image* image, const void* bytecode)
+int noravm_elf_write(FILE* fp, const struct noravm_image* image, const void* bytecode)
 {
-    size_t data_start = sizeof(Elf64_Ehdr) + sizeof(Elf64_Phdr) * image->num_segments;
-    size_t data_end = data_start + image->file_size;
-    char strs[] = "\0.data\0.text\0.text\0.data\0.bss\0.rodata\0.shstrtab\0";
-    uint32_t idxs[] = {
-        1, 7, 13, 19, 25, 30, 38, 0
-    };
-    size_t sh_start = data_end + sizeof(strs);
-
     if (image->vm_entry_point != LINUX_ENTRY) {
         return EINVAL;
     }
+
+    size_t ph_off = sizeof(Elf64_Ehdr) + sizeof(Elf64_Phdr) * image->num_segments;
+    size_t data_start = NORAVM_ALIGN_ADDR(ph_off, image->page_size);
+    
+    size_t data_end = data_start + image->file_size;
+
+    char strs[] = "\0.data\0.text\0.text\0.data\0.bss\0.rodata\0.shstrtab\0";
+
+    uint32_t idxs[] = {
+        1, 7, 13, 19, 25, 30, 38, 0
+    };
+
+    size_t sh_start = data_end + sizeof(strs);
 
     Elf64_Ehdr ehdr;
     ehdr.e_ident[EI_MAG0] = ELFMAG0;
@@ -46,7 +51,7 @@ int noravm_elf_write(FILE* fp, struct noravm_image* image, const void* bytecode)
     ehdr.e_flags = 0;
     ehdr.e_ehsize = sizeof(ehdr);
     ehdr.e_phentsize = sizeof(Elf64_Phdr);
-    ehdr.e_phnum = (data_start - sizeof(Elf64_Ehdr)) / sizeof(Elf64_Phdr);
+    ehdr.e_phnum = (ph_off - sizeof(Elf64_Ehdr)) / sizeof(Elf64_Phdr);
     ehdr.e_shentsize = sizeof(Elf64_Shdr);
     ehdr.e_shnum = 2 + image->num_sections;
     ehdr.e_shstrndx = 1 + image->num_sections;
@@ -72,7 +77,8 @@ int noravm_elf_write(FILE* fp, struct noravm_image* image, const void* bytecode)
             case NORAVM_SEG_NORAVM:
                 // Include ELF header and program headers
                 phdr.p_offset = 0;
-                phdr.p_filesz += data_start;
+                phdr.p_filesz = data_start + segment->file_start + segment->file_size;
+                phdr.p_memsz = data_start + segment->file_start + segment->file_size;
                 phdr.p_flags = PF_R | PF_X;
                 break;
 
@@ -81,8 +87,12 @@ int noravm_elf_write(FILE* fp, struct noravm_image* image, const void* bytecode)
                 break;
         }
 
-
         fwrite(&phdr, sizeof(phdr), 1, fp);
+    }
+
+    // Write padding to file
+    for (size_t i = 0; i < data_start - ph_off; ++i) {
+        fputc('\x00', fp);
     }
 
     // Write data to file
@@ -105,7 +115,7 @@ int noravm_elf_write(FILE* fp, struct noravm_image* image, const void* bytecode)
         }
     }
 
-    // Write string table
+    // Write string table contents
     fwrite(strs, sizeof(strs), 1, fp);
 
     // Write NULL section header
@@ -130,7 +140,7 @@ int noravm_elf_write(FILE* fp, struct noravm_image* image, const void* bytecode)
             shdr.sh_name = idxs[section->type];
             shdr.sh_type = 0;
             shdr.sh_flags = 0;
-            shdr.sh_offset = data_start + section->file_start;
+            shdr.sh_offset = data_start + segment->file_start + section->file_offset_to_seg;
             shdr.sh_size = NORAVM_ALIGN_ADDR(section->size, section->file_align);
             shdr.sh_link = 0;
             shdr.sh_info = 0;

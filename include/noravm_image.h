@@ -34,6 +34,7 @@ struct noravm_image
     size_t                      file_size;          // Total file size of image
     size_t                      num_segments;       // Number of segments in image
     size_t                      num_sections;       // Number of sections in image
+    size_t                      page_size;          // System page size
     struct noravm_list          segments;           // List of segments
 };
 
@@ -97,7 +98,6 @@ struct noravm_section
     size_t                      vm_size;            // Size of section in virtual memory
     size_t                      size;               // Size of data
     const void*                 data;               // Pointer to section data
-    size_t                      file_start;         // Absolute position in file
     size_t                      file_offset_to_seg; // Offset to segment in file
     size_t                      file_offset_to_prev;// Offset to previous section in file
     size_t                      file_align;         // File alignment (NB! if 0, section has no content)
