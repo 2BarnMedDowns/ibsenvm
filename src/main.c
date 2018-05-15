@@ -38,7 +38,7 @@ int main(int argc, char** argv)
         return result;
     }
 
-    result = noravm_image_reserve_vm_data(image, NORAVM_MEM_ADDR, NORAVM_MEM_TOTAL_SIZE, 8);
+    result = noravm_image_reserve_vm_data(image, NORAVM_ENTRY, NORAVM_MEM_TOTAL_SIZE, 16);
     if (result != 0) {
         fprintf(stderr, "Failed to reserve VM memory for data: %s\n", strerror(result));
         return result;
