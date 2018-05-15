@@ -10,11 +10,12 @@ extern "C" {
 #include <noravm_list.h>
 
 
+
 /* 
  * Convenience macro for aligning addresses to a specified alignment.
  * Alignment must be a power of two.
  */
-#define NORAVM_ALIGN_ADDR(size, alignment) (((size) + (alignment) - 1) & ~((alignment) - 1))
+#define NORAVM_ALIGN_ADDR(size, alignment) (((uint64_t) (size) + (alignment) - 1) & ~(((uint64_t) (alignment) - 1)))
 
 
 /*
@@ -58,7 +59,7 @@ struct noravm_segment
     enum noravm_segment_type    type;               // Segment type
     struct noravm_image*        image;              // Parent reference
     struct noravm_list          list;               // Linked list node
-    size_t                      alignment;          // Segment alignment
+    size_t                      vm_align;           // VM alignment
     uint64_t                    vm_start;           // Virtual memory address of the segment
     size_t                      vm_size;            // Size of segment in virtual memory
     size_t                      file_start;         // Absolute position in file
@@ -146,6 +147,7 @@ int noravm_image_add_section(struct noravm_section** section,
  */
 int noravm_image_load_vm(struct noravm_image* image,
                          const struct noravm_functions* funcs,
+                         size_t vm_align,
                          size_t code_align);
 
 
@@ -154,6 +156,7 @@ int noravm_image_load_vm(struct noravm_image* image,
  * Reserve memory segment for virtual machine data.
  */
 int noravm_image_reserve_vm_data(struct noravm_image* image, 
+                                 uint64_t data_addr,
                                  size_t data_size, 
                                  size_t stack_entries,
                                  size_t bytecode_size);

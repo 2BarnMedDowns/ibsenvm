@@ -1,7 +1,6 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <unistd.h>
 #include <string.h>
 #include <noravm_vm.h>
 #include <noravm_list.h>
@@ -17,26 +16,31 @@ void __noravm_interrupt(struct noravm_registers* regs, struct noravm_region** re
 void __noravm(struct noravm_data* vm)
 {
     // I hope this is inlined...
-    size_t len = *((unsigned char*) vm->code_addr);
-    const char* str = ((const char*) vm->code_addr) + 1;
-    write(1, str, len);
+//    size_t len = *((unsigned char*) vm->code_addr);
+//    const char* str = ((const char*) vm->code_addr) + 1;
+//    write(1, str, len);
 
-    vm->intr(NULL, NULL);
+    //vm->intr(NULL, NULL);
+
+    while (1);
 }
 
 
-void __noravm_loader()
+void __noravm_loader(void)
 {
-//    struct noravm_entry_point* ep = (void*) NORAVM_ENTRY_ADDR;
-//
-//    struct noravm_data* data = (void*) ep->data_addr;
-//
-//    data->intr = (noravm_interrupt_t) ep->intr_addr;
-//    data->code_addr = (void*) ep->code_addr;
-//
-//    void (*vm)(struct noravm_data*) = (void*) ep->machine_addr;
-//
-//    vm(data);
+    // Get address descriptions from known location
+    struct noravm_entry_point* ep = (void*) NORAVM_MEM_ADDR;
+
+    // Get pointer to zeroed out machine state
+    void (*vm)(struct noravm_data*) = (void*) ep->machine_addr;
+    
+
+    // Never return
+    __asm__ volatile (
+            "syscall"
+            : /* no output */
+            : "a" (60), "D" (15)
+            );
 }
 
 

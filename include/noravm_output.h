@@ -11,7 +11,7 @@ extern "C" {
 #ifdef __APPLE__
 int noravm_macho_write(FILE* fp, struct noravm_image* image, const void* bytecode);
 #else
-int noravm_elf_write(FILE* fp, const struct noravm_image* image, const void* bytecode);
+int noravm_elf_write(FILE* fp, struct noravm_image* image, const void* bytecode);
 #endif
 
 
