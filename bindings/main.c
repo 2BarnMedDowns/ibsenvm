@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <Python.h>
 #include <stdint.h>
+#include <dlfcn.h>
 #include "structmember.h"
 
 #include <ivm_entry.h>
@@ -15,11 +16,43 @@ typedef struct {
 } ivm;
 
 
-static int create_image_from_python(const char* filename, const char* bytecode, size_t bcode_size, uint64_t startaddr, size_t statesize, size_t framesize, size_t numframes, uint64_t dataaddr)
+
+static int get_functions(const char* filename, struct ivm_vm_functions* functions)
+{
+    void* handle = dlopen(filename, RTLD_NOW | RTLD_LOCAL);
+    if (!handle) {
+        return 0;
+    }
+
+    void (*function)(struct ivm_vm_functions*) = dlsym(handle, "ivm_get_vm_functions");
+    if (!function) {
+        dlclose(handle);
+        return 0;
+    }
+
+    function(functions);
+
+    dlclose(handle);
+    return 1;
+}
+
+
+
+static int create_image_from_python(const char* vm_filename, 
+                                    const char* filename, 
+                                    const char* bytecode, 
+                                    size_t bcode_size, 
+                                    uint64_t startaddr, 
+                                    size_t statesize, 
+                                    size_t framesize, 
+                                    size_t numframes, 
+                                    uint64_t dataaddr)
 {
 
     struct ivm_vm_functions functions;
-    ivm_get_vm_functions(&functions);
+    if (!get_functions(vm_filename, &functions)) {
+        return 0;
+    }
 
     struct ivm_image* image;
     int ret_image_create = ivm_image_create(&image, statesize, framesize, numframes);
@@ -60,6 +93,7 @@ static int create_image_from_python(const char* filename, const char* bytecode, 
 
 static PyObject* ibsen_image_create(ivm* self, PyObject *args) 
 {
+    const char* vm_filename;
     const char* bytecode;
     const char* filename;
     size_t framesize = 0x400;
@@ -67,14 +101,15 @@ static PyObject* ibsen_image_create(ivm* self, PyObject *args)
     size_t numframes = 0x100;
     uint64_t startaddr = 0x400000;
     uint64_t dataaddr = 0x8000000;
-
     size_t len_bcode;
 
-    if (!PyArg_ParseTuple(args, "ssn", &filename, &bytecode)) {
+    if (!PyArg_ParseTuple(args, "sssn", &filename, &vm_filename, &bytecode, &len_bcode)) {
         return NULL;
     }
 
-    int ret = create_image_from_python(filename, bytecode, len_bcode, startaddr, statesize, framesize, numframes, dataaddr);
+    int ret = create_image_from_python(vm_filename, filename, bytecode, len_bcode, startaddr, statesize, framesize, numframes, dataaddr);
+
+    fprintf(stderr, "vi tror den ikke feiler: %d\n", ret);
     return Py_BuildValue("i", ret);
 }
 
