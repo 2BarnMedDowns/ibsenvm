@@ -1,6 +1,5 @@
-OOOOooook... 
 
-So basicly! to compile python modules from c/c++ and have them imported from CPython interpreter 
+To compile python modules from c/c++ and have them imported from CPython interpreter 
 you need to have some stuff... 
 
 1. python develop header and libraries, onm linux these packages are called 
@@ -15,8 +14,10 @@ you need to have some stuff...
 4. On every sane system, the produced binary is a dynamically linked library (.so) except on windows where its a dynamically linked library but not called .dll, its called .pyd ... because adobe terms
    (if you make a <my_module.dll> on windows it wont find it, the interpreter looks for <my_module.pyd> rename acordingly
 
-5. place it in the folder of the python file or specify LD_PRELOAD accordingly (except windows)
+5. place it in the folder of the python file or specify LD_PRELOAD (or LD_LIBRARY_PATH) accordingly (except windows)
 
+
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:../build/; gcc -fPIC -shared main.c -I/usr/include/python2.7 -I../include -L../build -lpython2.7 -o ibsen.so -llibivm
 
 
 gcc -shared main.c -I/usr/include/python2.7 -I../include -lpython2.7 -o ibsen.so

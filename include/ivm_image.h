@@ -153,11 +153,18 @@ int ivm_image_add_section(struct ivm_section** section,
 
 
 /*
- * Load the code of the Nora virtual machine in to memory.
+ * Load the code of the Ibsen virtual machine in to memory.
  */
 int ivm_image_load_vm(struct ivm_image* image,
                       const struct ivm_vm_functions* funcs,
                       uint64_t code_addr);
+
+
+
+/*
+ * Load the code of the Ibsen virtual machine in to memory from file.
+ */
+int ivm_image_load_vm_from_file(struct ivm_image*, const char* filename, uint64_t addr);
 
 
 

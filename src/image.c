@@ -9,6 +9,7 @@
 #include <ivm_list.h>
 #include <ivm_vm.h>
 #include <ivm_image.h>
+#include <dlfcn.h>
 
 
 
@@ -243,6 +244,7 @@ int ivm_image_load_vm(struct ivm_image* image, const struct ivm_vm_functions* fu
         return errno;
     }
 
+
     // Load VM code (offset by one page)
     unsigned char* ldptr = (unsigned char*) IVM_ALIGN_ADDR(image->vm_code, code_align) + image->page_size;
     memcpy(ldptr, (void*) funcs->loader.addr, funcs->loader.size);
@@ -278,6 +280,30 @@ int ivm_image_load_vm(struct ivm_image* image, const struct ivm_vm_functions* fu
 
     strcpy(image->data->id, funcs->id);
     return 0;
+}
+
+
+
+int ivm_image_load_vm_from_file(struct ivm_image* image, const char* filename, uint64_t addr)
+{
+    void* handle = dlopen(filename, RTLD_NOW | RTLD_LOCAL);
+    if (handle == NULL) {
+        return errno;
+    }
+
+    void (*get_functions)(struct ivm_vm_functions*) = dlsym(handle, "ivm_get_vm_functions");
+    if (get_functions == NULL) {
+        dlclose(handle);
+        return errno;
+    }
+
+    struct ivm_vm_functions functions;
+    get_functions(&functions);
+
+    int ret = ivm_image_load_vm(image, &functions, addr);
+
+    dlclose(handle);
+    return ret;
 }
 
 

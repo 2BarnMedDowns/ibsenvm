@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <Python.h>
 #include <stdint.h>
-#include <dlfcn.h>
 #include "structmember.h"
 
 #include <ivm_entry.h>
@@ -17,27 +16,6 @@ typedef struct {
 
 
 
-static int get_functions(const char* filename, struct ivm_vm_functions* functions)
-{
-    void* handle = dlopen(filename, RTLD_NOW | RTLD_LOCAL);
-    if (!handle) {
-        return 0;
-    }
-
-    void (*function)(struct ivm_vm_functions*) = dlsym(handle, "ivm_get_vm_functions");
-    if (!function) {
-        dlclose(handle);
-        return 0;
-    }
-
-    function(functions);
-
-    dlclose(handle);
-    return 1;
-}
-
-
-
 static int create_image_from_python(const char* vm_filename, 
                                     const char* filename, 
                                     const char* bytecode, 
@@ -49,28 +27,23 @@ static int create_image_from_python(const char* vm_filename,
                                     uint64_t dataaddr)
 {
 
-    struct ivm_vm_functions functions;
-    if (!get_functions(vm_filename, &functions)) {
-        return 0;
-    }
-
     struct ivm_image* image;
     int ret_image_create = ivm_image_create(&image, statesize, framesize, numframes);
     
-    if (!ret_image_create) {
+    if (ret_image_create) {
         return 0;
     }
 
-    int vm_ret = ivm_image_load_vm(image, &functions, startaddr);
+    int vm_ret = ivm_image_load_vm_from_file(image, vm_filename, startaddr);
 
-    if (!vm_ret) {
+    if (vm_ret) {
         ivm_image_remove(image);
         return 0;
     }
     
     int vm_data = ivm_image_reserve_vm_data(image, dataaddr, bcode_size);
 
-    if (!vm_data) {
+    if (vm_data) {
         ivm_image_remove(image);
         return 0;
     }
@@ -109,7 +82,6 @@ static PyObject* ibsen_image_create(ivm* self, PyObject *args)
 
     int ret = create_image_from_python(vm_filename, filename, bytecode, len_bcode, startaddr, statesize, framesize, numframes, dataaddr);
 
-    fprintf(stderr, "vi tror den ikke feiler: %d\n", ret);
     return Py_BuildValue("i", ret);
 }
 

@@ -26,6 +26,9 @@ include_directories ("${PROJECT_BINARY_DIR}/include" "${PROJECT_SOURCE_DIR}/incl
 
 
 # Create standalone static library for Ibsen virtual machine
+add_library (vm MODULE ${vm_source})
+target_compile_definitions (vm PRIVATE IVM_ID_STRING="ibsenvm-${PROJECT_VERSION}" IVM_ENTRY=${start_addr})
+
 add_library (ibsenvm STATIC ${vm_source})
 target_compile_definitions (ibsenvm PRIVATE IVM_ID_STRING="ibsenvm-${PROJECT_VERSION}" IVM_ENTRY=${start_addr})
 target_compile_options (ibsenvm BEFORE PUBLIC -nostdlib)
@@ -34,6 +37,7 @@ target_compile_options (ibsenvm BEFORE PUBLIC -nostdlib)
 # Create library
 add_library (libivm SHARED ${source})
 target_compile_definitions (libivm PUBLIC IVM_VERSION="${PROJECT_VERSION}" IVM_ID_STRING="ivm-${PROJECT_VERSION}" IVM_ENTRY=${start_addr})
+target_link_libraries (libivm -ldl)
 
 
 # Add OS specific sources to target
