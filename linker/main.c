@@ -60,7 +60,6 @@ int main(int argc, char** argv)
         return errno;
     }
 
-    //noravm_macho_write(fp, image, string);
     result = ivm_image_write(fp, image, string);
     if (result != 0) {
         fprintf(stderr, "Failed to write to output file: %s\n", strerror(result));

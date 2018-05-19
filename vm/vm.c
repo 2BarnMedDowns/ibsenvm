@@ -63,24 +63,6 @@ void __interrupt(struct ivm_data* vm, int fd, uint64_t addr)
 
 int64_t __vm(struct ivm_data* vm)
 {
-//    struct noravm_state* init_state;
-//    init_state.regs.ip = 0;
-//    init_state.regs.off = 0;
-//    init_state.regs.mask = NORAVM_INTR_DEFAULT_MASK;
-//    init_state.regs.intr = 0;
-//
-//    init_state.regs[0x00] = 0x0;
-//    for (int i = 0x01; i <= 0xff; ++i) {
-//        init_state.regs.r[i] = 0xffffffff;
-//    }
-//
-//    init_state.curr_state = NORAVM_STATE_OPCODE;
-//    init_state.prev_state = NORAVM_STATE_ABORT;
-//   
-//    copy_state(&data->states[0], &init_state);
-//    size_t len = *((unsigned char*) vm->addr);
-//    const char* str = ((const char*) vm->addr) + 1;
-//    int a = ibsen_write(1, str, len);
     return 2;
 }
 
