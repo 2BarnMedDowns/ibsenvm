@@ -1,8 +1,12 @@
 #include <stdio.h>
 #include <Python.h>
+#include <stdint.h>
 #include "structmember.h"
 
-#include <ivm_image.h>  // XXX Add this to call vm shit
+#include <ivm_entry.h>
+#include <ivm_image.h>
+
+
 
 typedef struct {
     PyObject_HEAD
@@ -11,29 +15,70 @@ typedef struct {
 } ivm;
 
 
-static PyObject *ibsen_image_create(ivm *self, PyObject *args) {
-    // XXX Parse and fill out
+static int create_image_from_python(const char* filename, const char* bytecode, size_t bcode_size, uint64_t startaddr, size_t statesize, size_t framesize, size_t numframes, uint64_t dataaddr)
+{
+
+    struct ivm_vm_functions functions;
+    ivm_get_vm_functions(&functions);
+
+    struct ivm_image* image;
+    int ret_image_create = ivm_image_create(&image, statesize, framesize, numframes);
+    
+    if (!ret_image_create) {
+        return 0;
+    }
+
+    int vm_ret = ivm_image_load_vm(image, &functions, startaddr);
+
+    if (!vm_ret) {
+        ivm_image_remove(image);
+        return 0;
+    }
+    
+    int vm_data = ivm_image_reserve_vm_data(image, dataaddr, bcode_size);
+
+    if (!vm_data) {
+        ivm_image_remove(image);
+        return 0;
+    }
+    
+    FILE* imagefile = fopen(filename, "wb");
+    if (!imagefile) {
+        ivm_image_remove(image);
+        return 0;
+    }
+
+    int write_status = ivm_image_write(imagefile, image, bytecode);
+    
+    fclose(imagefile);
+    ivm_image_remove(image);
+
+    return write_status == 0;
 }
 
-static PyObject *ibsen_image_remove(ivm *self, PyObject *args) {
-    // XXX Parse and fill out
+
+
+static PyObject* ibsen_image_create(ivm* self, PyObject *args) 
+{
+    const char* bytecode;
+    const char* filename;
+    size_t framesize = 0x400;
+    size_t statesize = 0x10;
+    size_t numframes = 0x100;
+    uint64_t startaddr = 0x400000;
+    uint64_t dataaddr = 0x8000000;
+
+    size_t len_bcode;
+
+    if (!PyArg_ParseTuple(args, "ssn", &filename, &bytecode)) {
+        return NULL;
+    }
+
+    int ret = create_image_from_python(filename, bytecode, len_bcode, startaddr, statesize, framesize, numframes, dataaddr);
+    return Py_BuildValue("i", ret);
 }
 
-static PyObject *ibsen_add_segment(ivm *self, PyObject *args) {
-    // XXX Parse and fill out
-}
 
-static PyObject *ibsen_add_section(ivm *self, PyObject *args) {
-    // XXX Parse and fill out
-}
-
-static PyObject *ibsen_reserve_vm_data(ivm *self, PyObject *args) {
-    // XXX Parse and fill out
-}
-
-static PyObject *ibsen_write(ivm *self, PyObject *args) {
-    // XXX Parse and fill out
-}
 
 static int ibsen_init(ivm *self, PyObject *args, PyObject *kwds) {
     self->dict = PyDict_New();
@@ -41,10 +86,14 @@ static int ibsen_init(ivm *self, PyObject *args, PyObject *kwds) {
     return 0;
 }
 
+
+
 static void ibsen_dealloc(ivm *self) {
     Py_XDECREF(self->dict);
     self->ob_type->tp_free((PyObject*)self);
 }
+
+
 
 // Example members, these are just examples
 static PyMemberDef ibsen_members[] =
@@ -54,16 +103,15 @@ static PyMemberDef ibsen_members[] =
     { NULL }
 };
 
+
+
 static PyMethodDef ibsen_methods[] = 
 {
-    { "ivm_image_create", (PyCFunction) ibsen_image_create, METH_VARARGS, "Set Astar parameters" },
-    { "ivm_image_remove", (PyCFunction) ibsen_image_remove, METH_VARARGS, "Set Astar parameters" },
-    { "ivm_image_add_segment", (PyCFunction) ibsen_add_segment, METH_VARARGS, "Set Astar parameters" },
-    { "ivm_image_add_section", (PyCFunction) ibsen_add_section, METH_VARARGS, "Set Astar parameters" },
-    { "ivm_image_reserve_vm_data", (PyCFunction) ibsen_reserve_vm_data, METH_VARARGS, "Set Astar parameters" },
-    { "ivm_image_write", (PyCFunction) ibsen_write, METH_VARARGS, "Set Astar parameters" },
+    { "image_create", (PyCFunction) ibsen_image_create, METH_VARARGS, "CREATE THEM IMAGES APPLES" },
     { NULL }
 };
+
+
 
 /* Annoying BEHOMT object for defining a 'type' */
 static PyTypeObject ibsenType = 
@@ -108,6 +156,8 @@ static PyTypeObject ibsenType =
     0,                         /* tp_alloc */
     0,                         /* tp_new */
 };
+
+
 
 PyMODINIT_FUNC initibsen(void)
 {
