@@ -1,0 +1,22 @@
+OOOOooook... 
+
+So basicly! to compile python modules from c/c++ and have them imported from CPython interpreter 
+you need to have some stuff... 
+
+1. python develop header and libraries, onm linux these packages are called 
+    ubuntu: sudo apt-get install python-dev
+    fedora: yum install python-devel 
+    etc...
+
+2. link with libpython2.7.whatever, find it! and link it!
+
+3. need Python.h header file (it comes with the packages aswell) find it and include it in the compilaer stage.
+
+4. On every sane system, the produced binary is a dynamically linked library (.so) except on windows where its a dynamically linked library but not called .dll, its called .pyd ... because adobe terms
+   (if you make a <my_module.dll> on windows it wont find it, the interpreter looks for <my_module.pyd> rename acordingly
+
+5. place it in the folder of the python file or specify LD_PRELOAD accordingly (except windows)
+
+
+
+gcc -shared main.c -I/usr/include/python2.7 -lpython2.7 -o ibsen.so
