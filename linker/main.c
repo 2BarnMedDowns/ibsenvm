@@ -10,14 +10,24 @@
 #include <ivm_image.h>
 
 
+int print_usage(char** argv) {
+    fprintf(stderr, "Usage: %s output\n", argv[0]);
+    return 1;
+}
 
 int main(int argc, char** argv)
 {
     int result;
 
     if (argc != 2) {
-        fprintf(stderr, "Usage: %s output\n", argv[0]);
-        return 1;
+        return print_usage(argv);
+    } else {
+        if ( strcmp(argv[1], "-h") == 0) {
+            return print_usage(argv);
+        }
+        if ( strcmp(argv[1], "-u") == 0) {
+            return print_usage(argv);
+        }
     }
 
     struct ivm_vm_functions funcs;
