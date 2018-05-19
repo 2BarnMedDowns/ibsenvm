@@ -19,4 +19,4 @@ you need to have some stuff...
 
 
 
-gcc -shared main.c -I/usr/include/python2.7 -lpython2.7 -o ibsen.so
+gcc -shared main.c -I/usr/include/python2.7 -I../include -lpython2.7 -o ibsen.so

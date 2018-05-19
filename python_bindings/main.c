@@ -2,7 +2,7 @@
 #include <Python.h>
 #include "structmember.h"
 
-//#include <ivm_image.h>  // XXX Add this to call vm shit
+#include <ivm_image.h>  // XXX Add this to call vm shit
 
 typedef struct {
     PyObject_HEAD
