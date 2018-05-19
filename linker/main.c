@@ -35,23 +35,23 @@ int main(int argc, char** argv)
     const char* string = "\x0eHello, world!\n";
 
     struct ivm_image* image;
-    result = ivm_image_create(&image, 32, 0x400);
+    result = ivm_image_create(&image, 32, 0x400, 256);
     if (result != 0) {
         fprintf(stderr, "Failed to create image: %s\n", strerror(result));
         return result;
     }
 
-//    result = noravm_image_load_vm(image, &funcs, 0x400000, 8);
-//    if (result != 0) {
-//        fprintf(stderr, "Failed to load VM code: %s\n", strerror(result));
-//        return result;
-//    }
-//
-//    result = noravm_image_reserve_vm_data(image, NORAVM_ENTRY, NORAVM_MEM_TOTAL_SIZE, 16);
-//    if (result != 0) {
-//        fprintf(stderr, "Failed to reserve VM memory for data: %s\n", strerror(result));
-//        return result;
-//    }
+    result = ivm_image_load_vm(image, &funcs, 0x400000);
+    if (result != 0) {
+        fprintf(stderr, "Failed to load VM code: %s\n", strerror(result));
+        return result;
+    }
+
+    result = ivm_image_reserve_vm_data(image, IVM_ENTRY, 16);
+    if (result != 0) {
+        fprintf(stderr, "Failed to reserve VM memory for data: %s\n", strerror(result));
+        return result;
+    }
 
 
     FILE* fp = fopen(argv[1], "w");

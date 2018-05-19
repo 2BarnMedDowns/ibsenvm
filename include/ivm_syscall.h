@@ -10,17 +10,6 @@ extern "C" {
 
 
 /*
- * Table of system calls.
- */
-struct __attribute__((aligned (16))) ivm_call_table
-{
-    size_t      num_entries;    // Number of functions in the table
-    uint64_t    entries[];      // Function entries
-};
-
-
-
-/*
  * System calls supported by the Ibsen virtual machine.
  */
 enum

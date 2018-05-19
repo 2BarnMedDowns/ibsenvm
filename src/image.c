@@ -52,7 +52,37 @@ static void remove_segment(struct ivm_segment* segment)
 
 
 
-int ivm_image_create(struct ivm_image** handle ,size_t stack_size, size_t region_size)
+static int create_vm_data(struct ivm_image* image, size_t num_states, size_t frame_size, size_t num_frames)
+{
+    size_t data_size = sizeof(struct ivm_data) 
+        + sizeof(struct ivm_registers)
+        + sizeof(struct ivm_state) * num_states
+        + sizeof(struct ivm_frame) * num_frames;
+
+    struct ivm_data* data = malloc(data_size);
+    if (data == NULL) {
+        return errno;
+    }
+    memset(data, 0, data_size);
+
+    data->state_size = num_states;
+    data->fshift = 9; // FIXME: calculate from frame size
+    data->fsize = frame_size;
+    data->fnum = num_frames;
+
+    image->data = data;
+    image->data_size = data_size;
+    image->data_offset_to_regs = sizeof(struct ivm_data);
+    image->data_offset_to_states = image->data_offset_to_regs + sizeof(struct ivm_registers);
+    image->data_offset_to_ft = image->data_offset_to_states + sizeof(struct ivm_state) * num_states;
+    image->data_offset_to_ct = image->data_offset_to_ft + sizeof(struct ivm_frame) * num_frames;
+
+    return 0;
+}
+
+
+
+int ivm_image_create(struct ivm_image** handle, size_t stack_size, size_t frame_size, size_t num_frames)
 {
     if (handle == NULL) {
         return EINVAL;
@@ -68,8 +98,14 @@ int ivm_image_create(struct ivm_image** handle ,size_t stack_size, size_t region
         return errno;
     }
 
-    memset(&image->vm_data, 0, sizeof(struct ivm_data));
-    image->vm_data_file_offset = 0;
+    int err = create_vm_data(image, stack_size, frame_size, num_frames);
+    if (err != 0) {
+        free(image);
+        return err;
+    }
+
+    image->file_size = 0;
+    image->vm_file_offset = 0;
     image->vm_code = NULL;
     image->vm_entry_point = 0;
     image->num_segments = 0;
@@ -89,6 +125,7 @@ void ivm_image_remove(struct ivm_image* image)
         remove_segment(seg);
     }
 
+    free(image->data);
     free(image->vm_code);
     free(image);
 }
@@ -188,119 +225,122 @@ int ivm_image_add_section(struct ivm_section** handle,
 
 
 
-int ivm_image_load_vm(struct ivm_image* image, const struct ivm_vm_functions* funcs, size_t vm_align, size_t code_align)
+int ivm_image_load_vm(struct ivm_image* image, const struct ivm_vm_functions* funcs, uint64_t addr)
 {
+    int err;
+
+    size_t code_align = 8;
+
+    size_t size = image->page_size // offset with one page
+        + IVM_ALIGN_ADDR(funcs->loader.size, code_align)
+        + IVM_ALIGN_ADDR(funcs->vm.size, code_align)
+        + IVM_ALIGN_ADDR(funcs->interrupt.size, code_align);
+
+    size = IVM_ALIGN_ADDR(size, image->page_size);
+
+    image->vm_code = malloc(size);
+    if (image->vm_code == NULL) {
+        return errno;
+    }
+
+    // Load VM code (offset by one page)
+    unsigned char* ldptr = (unsigned char*) IVM_ALIGN_ADDR(image->vm_code, code_align) + image->page_size;
+    memcpy(ldptr, (void*) funcs->loader.addr, funcs->loader.size);
+    unsigned char* vmptr = ldptr + IVM_ALIGN_ADDR(funcs->loader.size, code_align);
+    memcpy(vmptr, (void*) funcs->vm.addr, funcs->vm.size);
+    unsigned char* intrptr = vmptr + IVM_ALIGN_ADDR(funcs->vm.size, code_align);
+    memcpy(intrptr, (void*) funcs->interrupt.addr, funcs->interrupt.size);
+
+    // TODO: create syscall table
+    
+    // Create code segment
+    struct ivm_segment* segment = NULL;
+    err = ivm_image_add_segment(&segment, image, IVM_SEG_CODE, image->page_size, addr, size, image->page_size);
+    if (err != 0) {
+        free(image->vm_code);
+        image->vm_code = NULL;
+        return err;
+    }
+
+    // Create code section
+    struct ivm_section* section = NULL;
+    err = ivm_image_add_section(&section, segment, IVM_SECT_CODE, 1, ((unsigned char*) image->vm_code) + image->page_size, size - image->page_size);
+    if (err != 0) {
+        free(image->vm_code);
+        image->vm_code = NULL;
+        return err;
+    }
+
+    image->vm_entry_point = segment->vm_start;
+    image->vm_file_offset = segment->file_start;
+    image->data->vm_addr = segment->vm_start + image->page_size + (vmptr - ldptr);
+    image->data->interrupt = (ivm_interrupt_t) (segment->vm_start + image->page_size + (intrptr - ldptr));
+
+    strcpy(image->data->id, funcs->id);
     return 0;
 }
 
-//int noravm_image_load_vm(struct noravm_image* image, const struct noravm_functions* funcs, size_t vm_align, size_t code_align)
-//{
-//    int err;
-//
-//    size_t pagesize = image->page_size;
-//    size_t size = pagesize // offset with one page
-//        + NORAVM_ALIGN_ADDR(funcs->loader.size, code_align) 
-//        + NORAVM_ALIGN_ADDR(funcs->vm.size, code_align) 
-//        + NORAVM_ALIGN_ADDR(funcs->intr.size, code_align);
-//
-//    size = NORAVM_ALIGN_ADDR(size, pagesize);
-//
-//    image->vm_code = malloc(size);
-//    if (image->vm_code == NULL) {
-//        return errno;
-//    }
-//
-//    // Load VM code offset by one page
-//    unsigned char* loaderptr = (unsigned char*) NORAVM_ALIGN_ADDR(image->vm_code, code_align) + pagesize;
-//    memcpy(loaderptr, (void*) funcs->loader.addr, funcs->loader.size);
-//    unsigned char* vmptr = loaderptr + NORAVM_ALIGN_ADDR(funcs->loader.size, code_align);
-//    memcpy(vmptr, (void*) funcs->vm.addr, funcs->vm.size);
-//    unsigned char* intrptr = vmptr + NORAVM_ALIGN_ADDR(funcs->vm.size, code_align);
-//    memcpy(intrptr, (void*) funcs->intr.addr, funcs->intr.size);
-//
-//    // Create code segment
-//    struct noravm_segment* segment = NULL;
-//    err = noravm_image_add_segment(&segment, image, NORAVM_SEG_NORAVM, vm_align, size);
-//    if (err != 0) {
-//        free(image->vm_code);
-//        image->vm_code = NULL;
-//        return err;
-//    }
-//
-//    // Create code section
-//    struct noravm_section* section = NULL;
-//    err = noravm_image_add_section(&section, segment, NORAVM_SECT_CODE, 1, pagesize, ((unsigned char*) image->vm_code) + pagesize, size - pagesize);
-//    if (err != 0) {
-//        free(image->vm_code);
-//        image->vm_code = NULL;
-//        return err;
-//    }
-//
-//    image->vm_entry_point = segment->vm_start;
-//    image->noravm_file_offset = segment->file_start;
-//
-//    image->noravm_entry.machine_addr = segment->vm_start + pagesize + (vmptr - loaderptr);
-//    image->noravm_entry.intr_addr = segment->vm_start + pagesize + (intrptr - loaderptr);
-//
-//    strcpy(image->noravm_entry.id, funcs->id);
-//    return 0;
-//}
+
+
+static void initialize_frame_table(struct ivm_image* image, uint64_t addr, size_t size)
+{
+    struct ivm_frame* frames = (struct ivm_frame*) (((unsigned char*) image->data) + image->data_offset_to_ft);
+
+    for (size_t i = 0; i < image->data->fnum; ++i) {
+        frames[i].addr = 0;
+        if (image->data->fsize * i <= size) {
+            frames[i].addr = addr + image->data->fsize * i;
+        }
+        frames[i].attr = 0;
+        frames[i].file = -1;
+        frames[i].offs = 0;
+    }
+}
 
 
 
-//int noravm_image_reserve_vm_data(struct noravm_image* image, uint64_t entry_addr, size_t data_size, size_t bytecode_size)
-//{
-//    int err;
-//
-//    size_t pagesize = image->page_size;
-//    size_t stack_size = image->noravm_entry.stack_size * sizeof(struct noravm_state);
-//    size_t state_size = sizeof(struct noravm_data) + stack_size;
-//    size_t region_size = sizeof(struct noravm_region) * (data_size / image->noravm_entry.region_size);
-//
-//    if (bytecode_size > data_size) {
-//        return EINVAL;
-//    }
-//
-//    struct noravm_segment* private_data = NULL;
-//    err = noravm_image_add_segment(&private_data, image, NORAVM_SEG_DATA, entry_addr, pagesize + state_size + region_size);
-//    if (err != 0) {
-//        return err;
-//    }
-//
-//    if (private_data->vm_start != entry_addr) {
-//        return EFAULT;
-//    }
-//
-//    struct noravm_section* entry_point = NULL;
-//    err = noravm_image_add_section(&entry_point, private_data, NORAVM_SECT_ENTRY_INFO, pagesize, pagesize, &image->noravm_entry, sizeof(struct noravm_entry_point));
-//    if (err != 0) {
-//        return err;
-//    }
-//
-//    struct noravm_section* vm_data_struct = NULL;
-//    err = noravm_image_add_section(&vm_data_struct, private_data, NORAVM_SECT_BSS, pagesize, 0, NULL, state_size + region_size);
-//    if (err != 0) {
-//        return err;
-//    }
-//    image->noravm_entry.data_addr = vm_data_struct->segment->vm_start + vm_data_struct->vm_offset_to_seg;
-//    image->noravm_entry.data_size = state_size + region_size;
-//
-//
-//    struct noravm_segment* vm_memory = NULL;
-//    err = noravm_image_add_segment(&vm_memory, image, NORAVM_SEG_DATA, pagesize, data_size);
-//    if (err != 0) {
-//        return err;
-//    }
-//
-//    struct noravm_section* bytecode = NULL;
-//    err = noravm_image_add_section(&bytecode, vm_memory, NORAVM_SECT_BYTECODE, pagesize, pagesize, NULL, bytecode_size);
-//    if (err != 0) {
-//        return err;
-//    }
-//
-//    image->noravm_entry.mem_addr = bytecode->segment->vm_start + bytecode->vm_offset_to_seg;
-//    image->noravm_entry.mem_size = vm_memory->vm_size;
-//
-//    return 0;
-//}
+int ivm_image_reserve_vm_data(struct ivm_image* image, uint64_t data_addr, size_t bytecode_size)
+{
+    int err;
 
+    if (bytecode_size > image->data->fsize * image->data->fnum) {
+        return EINVAL;
+    }
+
+    struct ivm_segment* data_segment = NULL;
+    err = ivm_image_add_segment(&data_segment, image, IVM_SEG_DATA, image->page_size, data_addr, image->data_size, image->page_size);
+    if (err != 0) {
+        return err;
+    }
+
+    if (data_segment->vm_start != data_addr) {
+        return EFAULT;
+    }
+
+    image->data->registers = (void*) (data_segment->vm_start + image->data_offset_to_regs);
+    image->data->states = (void*) (data_segment->vm_start + image->data_offset_to_states);
+    image->data->ftable = (void*) (data_segment->vm_start + image->data_offset_to_ft);
+    image->data->ctable = (void*) (data_segment->vm_start + image->data_offset_to_ct);
+
+    struct ivm_section* data_section = NULL;
+    err = ivm_image_add_section(&data_section, data_segment, IVM_SECT_DATA, image->page_size, image->data, image->data_size);
+    if (err != 0) {
+        return err;
+    }
+
+    
+    struct ivm_segment* code_segment = NULL;
+    err = ivm_image_add_segment(&code_segment, image, IVM_SEG_DATA, image->page_size, data_addr + data_segment->vm_size, bytecode_size, image->page_size);
+    if (err != 0) {
+        return err;
+    }
+
+    struct ivm_section* code_section = NULL;
+    err = ivm_image_add_section(&code_section, code_segment, IVM_SECT_BYTECODE, image->page_size, NULL, bytecode_size);
+    if (err != 0) {
+        return err;
+    }
+
+    initialize_frame_table(image, code_segment->vm_start, bytecode_size);
+    return 0;
+}

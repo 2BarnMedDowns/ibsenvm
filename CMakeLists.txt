@@ -2,9 +2,7 @@ cmake_minimum_required (VERSION 3.1)
 project (ibsen VERSION 0.0.1 LANGUAGES C)
 
 # Common defines
-set (init_size "0x1000" CACHE STRING "Initial VM data segment size")
 set (start_addr "0x80000000" CACHE STRING "Start address of the data segment")
-set (frame_size "0x200" CACHE STRING "Size of a data frame")
 
 
 # Compiler flags
@@ -35,7 +33,7 @@ target_compile_options (ibsenvm BEFORE PUBLIC -nostdlib)
 
 # Create library
 add_library (libivm SHARED ${source})
-target_compile_definitions (libivm PUBLIC IVM_VERSION="${PROJECT_VERSION}" IVM_ID_STRING="ivm-${PROJECT_VERSION}" IVM_FRAME_SIZE=${frame_size} IVM_DATA_SIZE=${init_size} IVM_ENTRY=${start_addr})
+target_compile_definitions (libivm PUBLIC IVM_VERSION="${PROJECT_VERSION}" IVM_ID_STRING="ivm-${PROJECT_VERSION}" IVM_ENTRY=${start_addr})
 
 
 # Add OS specific sources to target

@@ -29,8 +29,13 @@ extern "C" {
  */
 struct ivm_image
 {
-    struct ivm_data             vm_data;            // Initial VM data
-    size_t                      vm_data_file_offset;// Offset in image file to VM data
+    struct ivm_data*            data;               // Initial VM data
+    size_t                      data_size;          // Size of VM data
+    size_t                      data_offset_to_regs;  // Offset to registers
+    size_t                      data_offset_to_states; // Offset to states
+    size_t                      data_offset_to_ft;  // Offset to frame table
+    size_t                      data_offset_to_ct;  // Offset to call table
+    size_t                      vm_file_offset;     // Offset in image file to entry point
     void*                       vm_code;            // Code of the VM
     uint64_t                    vm_entry_point;     // Address of the entry point
     size_t                      file_size;          // Total file size of image
@@ -82,7 +87,6 @@ enum ivm_section_type
     IVM_SECT_CODE,
     IVM_SECT_BYTECODE,
     IVM_SECT_BSS,
-    IVM_SECT_ENTRY_INFO,
     IVM_SECT_CONST
 };
 
@@ -112,7 +116,8 @@ struct ivm_section
  */
 int ivm_image_create(struct ivm_image** image, 
                      size_t vm_state_stack_size,
-                     size_t vm_frame_size);
+                     size_t vm_frame_size,
+                     size_t vm_total_num_frames);
 
 
 /*
@@ -152,8 +157,7 @@ int ivm_image_add_section(struct ivm_section** section,
  */
 int ivm_image_load_vm(struct ivm_image* image,
                       const struct ivm_vm_functions* funcs,
-                      size_t vm_align,
-                      size_t code_align);
+                      uint64_t code_addr);
 
 
 
@@ -162,7 +166,6 @@ int ivm_image_load_vm(struct ivm_image* image,
  */
 int ivm_image_reserve_vm_data(struct ivm_image* image, 
                               uint64_t data_addr,
-                              size_t data_size, 
                               size_t bytecode_size);
 
 

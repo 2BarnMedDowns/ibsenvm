@@ -163,7 +163,6 @@ int ivm_image_write(FILE* fp, const struct ivm_image* image, const void* bytecod
                     break;
 
                 case IVM_SECT_CONST:
-                case IVM_SECT_ENTRY_INFO:
                     shdr.sh_type = SHT_PROGBITS;
                     shdr.sh_flags = SHF_ALLOC;
                     break;

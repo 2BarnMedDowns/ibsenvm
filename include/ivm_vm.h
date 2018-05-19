@@ -64,9 +64,12 @@ struct __attribute__((aligned (16))) ivm_data
     ivm_interrupt_t         interrupt;  // Interrupt routine
     size_t                  state_size; // Maximum size of the internal state stack
     size_t                  state_pos;  // Internal state stack position
+    size_t                  fshift;     // Frame shift
+    size_t                  fsize;      // Frame size
+    size_t                  fnum;       // Number of frames
+    struct ivm_frame*       ftable;     // Frame table pointer
     struct ivm_state*       states;     // Internal state stack
-    struct ivm_frame_table* frames;     // Frame table
-    struct ivm_call_table*  syscalls;   // System function table
+    uint64_t*               ctable;     // System call table
 };
 
 

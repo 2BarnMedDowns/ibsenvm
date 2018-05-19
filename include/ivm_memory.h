@@ -3,10 +3,6 @@
 
 #include <stdint.h>
 
-/* Forward declarations */
-struct ivm_frame;
-struct ivm_frame_table;
-
 
 
 /*
@@ -43,17 +39,6 @@ enum
 
 
 
-/*
- * The frame table describes all the memory frames used by the Ibsen Virtual Machine.
- */
-struct __attribute__((aligned (16))) ivm_frame_table
-{
-    uint32_t            fnum_shift;     // Frame number shift
-    size_t              num_entries;    // Number of entries in the frame table
-    struct ivm_frame    entries[];      // Frame entries
-};
-
-
 
 /*
  * Get the frame number.
@@ -72,11 +57,12 @@ struct __attribute__((aligned (16))) ivm_frame_table
 /*
  * Get the frame from the frame table.
  */
-#define IVM_FRAME(ftbl, addr) \
-    ((struct ivm_frame*) ( \
-        (IVM_FNUM(addr, (ftbl)->fnum_shift) < (ftbl)->num_entries) \
-        ? &(ftbl)->entries[IVM_FNUM(addr, (ftbl)->fnum)] \
-        : NULL))
+/*#define IVM_FRAME(ftbl, addr) \
+//    ((struct ivm_frame*) ( \
+//        (IVM_FNUM(addr, (ftbl)->fnum_shift) < (ftbl)->num_entries) \
+//        ? &(ftbl)->entries[IVM_FNUM(addr, (ftbl)->fnum)] \
+//        : NULL))
+*/
 
 
 #endif /* __IBSENVM_MEMORY_H__ */
