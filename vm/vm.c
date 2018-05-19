@@ -2,8 +2,11 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
-#include <noravm_vm.h>
-#include <noravm_list.h>
+#include <ivm_vm.h>
+#include <ivm_interrupt.h>
+#include <ivm_list.h>
+#include <ivm_syscall.h>
+#include <ivm_entry.h>
 #include "syscall.h"
 
 
@@ -50,21 +53,15 @@ size_t print_uint(int fd, size_t pad, uint64_t value)
 
 
 
-static inline __attribute__((always_inline))
-void copy_state(struct noravm_state* new, const struct noravm_state* old)
-{
 
-}
-
-
-void __interrupt(struct noravm_registers* regs, struct noravm_region* mem)
+void __interrupt(struct ivm_data* vm, int fd, uint64_t addr)
 {
     //char data[16] = "Hello\n";
     //write(1, data, 6);
 }
 
 
-int64_t __vm(struct noravm_data* vm)
+int64_t __vm(struct ivm_data* vm)
 {
 //    struct noravm_state* init_state;
 //    init_state.regs.ip = 0;
@@ -81,64 +78,32 @@ int64_t __vm(struct noravm_data* vm)
 //    init_state.prev_state = NORAVM_STATE_ABORT;
 //   
 //    copy_state(&data->states[0], &init_state);
-    size_t len = *((unsigned char*) vm->addr);
-    const char* str = ((const char*) vm->addr) + 1;
-    int a = ibsen_write(1, str, len);
-    return -1;
+//    size_t len = *((unsigned char*) vm->addr);
+//    const char* str = ((const char*) vm->addr) + 1;
+//    int a = ibsen_write(1, str, len);
+    return 2;
 }
 
 
 void __loader(void)
 {
-    // Get address descriptions from known location
-    struct noravm_entry_point* ep = (void*) NORAVM_ENTRY;
-
-    // Bootstrap initial state 
-    struct noravm_data* data = (void*) ep->data_addr;
-    data->intr = (noravm_interrupt_t) ep->intr_addr;
-    data->addr = (void*) ep->mem_addr;
-    data->size = ep->mem_size;
-    data->stack_idx = 0;
-    data->stack_size = ep->stack_size;
-
-    // Create memory regions
-    size_t state_end = sizeof(struct noravm_data) + ep->stack_size * sizeof(struct noravm_state);
-    noravm_list_init(&data->regions);
-
-    struct noravm_region* regions = (void*) (((unsigned char*) ep->data_addr) + state_end);
-    for (size_t i = 0; i < (ep->data_size - state_end) / sizeof(struct noravm_region); ++i) {
-        noravm_list_insert(&data->regions, &regions[i]);
-        regions[i].vm_addr = i * ep->region_size;
-        regions[i].ph_addr = (void*) (i * ep->region_size + ep->mem_addr);
-        regions[i].size = ep->region_size;
-    }
-
-    // Make function pointer to virtual machine
-    int64_t (*vm)(struct noravm_data*) = (void*) ep->machine_addr;
-    int64_t ret = vm(data);
-    
-    if (ret < 0) {
-        ibsen_exit(0xff);
-    }
-    else {
-        ibsen_exit(ret);
-    }
+   ibsen_exit(15);
 }
 
 
-void noravm_get_functions(struct noravm_functions* ep)
+void ivm_get_vm_functions(struct ivm_vm_functions* funcs)
 {
-    strcpy(ep->id, NORAVM_ID_STRING);
+    strcpy(funcs->id, IVM_ID_STRING);
 
-    strcpy(ep->intr.name, "__interrupt");
-    ep->intr.addr = (uint64_t) __interrupt;
-    ep->intr.size = (uint64_t) __vm - (uint64_t) __interrupt;
+    strcpy(funcs->interrupt.name, "__interrupt");
+    funcs->interrupt.addr = (uint64_t) __interrupt;
+    funcs->interrupt.size = (uint64_t) __vm - (uint64_t) __interrupt;
 
-    strcpy(ep->vm.name, "__noravm");
-    ep->vm.addr = (uint64_t) __vm;
-    ep->vm.size = (uint64_t) __loader - (uint64_t) __vm;
+    strcpy(funcs->vm.name, "__vm");
+    funcs->vm.addr = (uint64_t) __vm;
+    funcs->vm.size = (uint64_t) __loader - (uint64_t) __vm;
 
-    strcpy(ep->loader.name, "__noravm_loader");
-    ep->loader.addr = (uint64_t) __loader;
-    ep->loader.size = (uint64_t) noravm_get_functions - (uint64_t) __loader;
+    strcpy(funcs->loader.name, "__loader");
+    funcs->loader.addr = (uint64_t) __loader;
+    funcs->loader.size = (uint64_t) ivm_get_vm_functions - (uint64_t) __loader;
 }

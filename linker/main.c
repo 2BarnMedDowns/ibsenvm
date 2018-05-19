@@ -6,9 +6,8 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
-#include <noravm_vm.h>
-#include <noravm_image.h>
-#include <noravm_output.h>
+#include <ivm_vm.h>
+#include <ivm_image.h>
 
 
 
@@ -21,28 +20,28 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    struct noravm_functions funcs;
-    noravm_get_functions(&funcs);
+    struct ivm_vm_functions funcs;
+    ivm_get_vm_functions(&funcs);
     const char* string = "\x0eHello, world!\n";
 
-    struct noravm_image* image;
-    result = noravm_image_create(&image, 0x400000, 32, NORAVM_MEM_PAGE_SIZE);
+    struct ivm_image* image;
+    result = ivm_image_create(&image, 32, 0x400);
     if (result != 0) {
         fprintf(stderr, "Failed to create image: %s\n", strerror(result));
         return result;
     }
 
-    result = noravm_image_load_vm(image, &funcs, 0x400000, 8);
-    if (result != 0) {
-        fprintf(stderr, "Failed to load VM code: %s\n", strerror(result));
-        return result;
-    }
-
-    result = noravm_image_reserve_vm_data(image, NORAVM_ENTRY, NORAVM_MEM_TOTAL_SIZE, 16);
-    if (result != 0) {
-        fprintf(stderr, "Failed to reserve VM memory for data: %s\n", strerror(result));
-        return result;
-    }
+//    result = noravm_image_load_vm(image, &funcs, 0x400000, 8);
+//    if (result != 0) {
+//        fprintf(stderr, "Failed to load VM code: %s\n", strerror(result));
+//        return result;
+//    }
+//
+//    result = noravm_image_reserve_vm_data(image, NORAVM_ENTRY, NORAVM_MEM_TOTAL_SIZE, 16);
+//    if (result != 0) {
+//        fprintf(stderr, "Failed to reserve VM memory for data: %s\n", strerror(result));
+//        return result;
+//    }
 
 
     FILE* fp = fopen(argv[1], "w");
@@ -52,7 +51,7 @@ int main(int argc, char** argv)
     }
 
     //noravm_macho_write(fp, image, string);
-    result = noravm_elf_write(fp, image, string);
+    result = ivm_image_write(fp, image, string);
     if (result != 0) {
         fprintf(stderr, "Failed to write to output file: %s\n", strerror(result));
         return result;
@@ -60,7 +59,7 @@ int main(int argc, char** argv)
 
     fclose(fp);
 
-    noravm_image_remove(image);
+    ivm_image_remove(image);
 
     return 0;
 }
