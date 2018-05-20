@@ -115,7 +115,7 @@ struct ivm_section
  * Allocate a new image structure.
  */
 int ivm_image_create(struct ivm_image** image, 
-                     size_t vm_state_stack_size,
+                     size_t vm_num_states,
                      size_t vm_frame_size,
                      size_t vm_total_num_frames);
 

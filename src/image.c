@@ -83,7 +83,7 @@ static int create_vm_data(struct ivm_image* image, size_t num_states, size_t fra
 
 
 
-int ivm_image_create(struct ivm_image** handle, size_t stack_size, size_t frame_size, size_t num_frames)
+int ivm_image_create(struct ivm_image** handle, size_t num_states, size_t frame_size, size_t num_frames)
 {
     if (handle == NULL) {
         return EINVAL;
@@ -99,7 +99,7 @@ int ivm_image_create(struct ivm_image** handle, size_t stack_size, size_t frame_
         return errno;
     }
 
-    int err = create_vm_data(image, stack_size, frame_size, num_frames);
+    int err = create_vm_data(image, num_states, frame_size, num_frames);
     if (err != 0) {
         free(image);
         return err;
@@ -354,7 +354,6 @@ int ivm_image_reserve_vm_data(struct ivm_image* image, uint64_t data_addr, size_
         return err;
     }
 
-    
     struct ivm_segment* code_segment = NULL;
     err = ivm_image_add_segment(&code_segment, image, IVM_SEG_DATA, image->page_size, data_addr + data_segment->vm_size, bytecode_size, image->page_size);
     if (err != 0) {
@@ -368,5 +367,6 @@ int ivm_image_reserve_vm_data(struct ivm_image* image, uint64_t data_addr, size_
     }
 
     initialize_frame_table(image, code_segment->vm_start, bytecode_size);
+
     return 0;
 }

@@ -5,39 +5,59 @@
 #include <getopt.h>
 #include <unistd.h>
 #include <errno.h>
+#include <dlfcn.h>
 #include <string.h>
 #include <ivm_vm.h>
 #include <ivm_image.h>
 
 
-int print_usage(char** argv) {
-    fprintf(stderr, "Usage: %s output\n", argv[0]);
-    return 1;
+static int get_functions(const char* filename, struct ivm_vm_functions* funcs)
+{
+    void* handle = dlopen(filename, RTLD_NOW | RTLD_LOCAL);
+    if (handle == NULL) {
+        fprintf(stderr, "Failed to dynamic lib: %s\n", dlerror());
+        return errno;
+    }
+
+    void (*get)(struct ivm_vm_functions*) = dlsym(handle, "ivm_get_vm_functions");
+    if (get == NULL) {
+        fprintf(stderr, "Failed to dynamic lib: %s\n", dlerror());
+        return errno;
+    }
+
+    get(funcs);
+
+    dlclose(handle);
+    return 0;
 }
+
+
+
 
 int main(int argc, char** argv)
 {
     int result;
 
-    if (argc != 2) {
-        return print_usage(argv);
-    } else {
-        if ( strcmp(argv[1], "-h") == 0) {
-            return print_usage(argv);
-        }
-        if ( strcmp(argv[1], "-u") == 0) {
-            return print_usage(argv);
-        }
+    if (argc != 3) {
+        fprintf(stderr, "Usage: %s <vm> <output>\n", argv[0]);
+        return 1;
     }
 
     struct ivm_vm_functions funcs;
-    ivm_get_vm_functions(&funcs);
+    get_functions(argv[1], &funcs);
+
     const char* string = "\x0eHello, world!\n";
 
     struct ivm_image* image;
     result = ivm_image_create(&image, 32, 0x400, 256);
     if (result != 0) {
         fprintf(stderr, "Failed to create image: %s\n", strerror(result));
+        return result;
+    }
+
+    result = ivm_image_add_segment(NULL, image, IVM_SEG_NULL, 0x1000, 0, 0x400000, 0x1000);
+    if (result != 0) {
+        fprintf(stderr, "Failed to create NULL segment: %s\n", strerror(result));
         return result;
     }
 
@@ -54,7 +74,7 @@ int main(int argc, char** argv)
     }
 
 
-    FILE* fp = fopen(argv[1], "w");
+    FILE* fp = fopen(argv[2], "w");
     if (fp == NULL) {
         fprintf(stderr, "%s\n", strerror(errno));
         return errno;

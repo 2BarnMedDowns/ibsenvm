@@ -60,6 +60,7 @@ struct __attribute__((aligned (16))) ivm_data
 {
     char                    id[16];     // Identifier string
     uint64_t                vm_addr;    // Address to the virtual machine
+    uint64_t                stack_addr; // Address to the stack
     struct ivm_registers*   registers;  // Virtual machine registers
     ivm_interrupt_t         interrupt;  // Interrupt routine
     size_t                  state_size; // Maximum size of the internal state stack

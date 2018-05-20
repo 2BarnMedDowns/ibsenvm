@@ -7,16 +7,9 @@
 #include <stdio.h>
 
 
-#define LINUX_ENTRY 0x400000
-
-
 
 int ivm_image_write(FILE* fp, const struct ivm_image* image, const void* bytecode)
 {
-    if (image->vm_entry_point != LINUX_ENTRY) {
-        return EINVAL;
-    }
-
     size_t ph_off = sizeof(Elf64_Ehdr) + sizeof(Elf64_Phdr) * image->num_segments;
     size_t data_start = IVM_ALIGN_ADDR(ph_off, image->page_size);
     

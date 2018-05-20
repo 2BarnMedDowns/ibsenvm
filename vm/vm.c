@@ -48,7 +48,8 @@ size_t print_uint(int fd, size_t pad, uint64_t value)
         n = pad;
     }
 
-    return ibsen_write(fd, &placeholder[sizeof(placeholder) - n], n);
+    //return ibsen_write(fd, &placeholder[sizeof(placeholder) - n], n);
+    return ibsen_syscall3(0x2000004, fd, &placeholder[sizeof(placeholder) - n], n);
 }
 
 
@@ -69,7 +70,10 @@ int64_t __vm(struct ivm_data* vm)
 
 void __loader(void)
 {
-   ibsen_exit(15);
+    char s[] = "hello\n";
+    //int a = print_uint(1, 0, 0xdeadbeef);
+    //ibsen_syscall1(0x2000001, 2);
+    //ibsen_exit(15);
 }
 
 

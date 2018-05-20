@@ -2,7 +2,8 @@ cmake_minimum_required (VERSION 3.1)
 project (ibsen VERSION 0.0.1 LANGUAGES C)
 
 # Common defines
-set (start_addr "0x80000000" CACHE STRING "Start address of the data segment")
+set (stack_addr "0x60000000" CACHE STRING "Address of stack segment")
+set (start_addr "0x80000000" CACHE STRING "Address of the VM data segment")
 
 
 # Compiler flags
@@ -27,16 +28,16 @@ include_directories ("${PROJECT_BINARY_DIR}/include" "${PROJECT_SOURCE_DIR}/incl
 
 # Create standalone static library for Ibsen virtual machine
 add_library (vm MODULE ${vm_source})
-target_compile_definitions (vm PRIVATE IVM_ID_STRING="ibsenvm-${PROJECT_VERSION}" IVM_ENTRY=${start_addr})
+target_compile_definitions (vm PRIVATE IVM_ID_STRING="ibsenvm-${PROJECT_VERSION}" IVM_ENTRY=${start_addr} IVM_STACK=${stack_addr})
 
 add_library (ibsenvm STATIC ${vm_source})
-target_compile_definitions (ibsenvm PRIVATE IVM_ID_STRING="ibsenvm-${PROJECT_VERSION}" IVM_ENTRY=${start_addr})
+target_compile_definitions (ibsenvm PRIVATE IVM_ID_STRING="ibsenvm-${PROJECT_VERSION}" IVM_ENTRY=${start_addr} IVM_STACK=${stack_addr})
 target_compile_options (ibsenvm BEFORE PUBLIC -nostdlib)
 
 
 # Create library
 add_library (libivm SHARED ${source})
-target_compile_definitions (libivm PUBLIC IVM_VERSION="${PROJECT_VERSION}" IVM_ID_STRING="ivm-${PROJECT_VERSION}" IVM_ENTRY=${start_addr})
+target_compile_definitions (libivm PUBLIC IVM_VERSION="${PROJECT_VERSION}" IVM_ID_STRING="ivm-${PROJECT_VERSION}" IVM_ENTRY=${start_addr} IVM_STACK=${stack_addr})
 target_link_libraries (libivm -ldl)
 
 
