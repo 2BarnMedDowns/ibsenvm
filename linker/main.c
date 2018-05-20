@@ -11,25 +11,25 @@
 #include <ivm_image.h>
 
 
-static int get_functions(const char* filename, struct ivm_vm_functions* funcs)
-{
-    void* handle = dlopen(filename, RTLD_NOW | RTLD_LOCAL);
-    if (handle == NULL) {
-        fprintf(stderr, "Failed to dynamic lib: %s\n", dlerror());
-        return errno;
-    }
-
-    void (*get)(struct ivm_vm_functions*) = dlsym(handle, "ivm_get_vm_functions");
-    if (get == NULL) {
-        fprintf(stderr, "Failed to dynamic lib: %s\n", dlerror());
-        return errno;
-    }
-
-    get(funcs);
-
-    dlclose(handle);
-    return 0;
-}
+//static int get_functions(const char* filename, struct ivm_vm_functions* funcs)
+//{
+//    void* handle = dlopen(filename, RTLD_NOW | RTLD_LOCAL);
+//    if (handle == NULL) {
+//        fprintf(stderr, "Failed to dynamic lib: %s\n", dlerror());
+//        return errno;
+//    }
+//
+//    void (*get)(struct ivm_vm_functions*) = dlsym(handle, "ivm_get_vm_functions");
+//    if (get == NULL) {
+//        fprintf(stderr, "Failed to dynamic lib: %s\n", dlerror());
+//        return errno;
+//    }
+//
+//    get(funcs);
+//
+//    dlclose(handle);
+//    return 0;
+//}
 
 
 
@@ -43,8 +43,8 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    struct ivm_vm_functions funcs;
-    get_functions(argv[1], &funcs);
+//    struct ivm_vm_functions funcs;
+//    get_functions(argv[1], &funcs);
 
     const char* string = "\x0eHello, world!\n";
 
@@ -55,13 +55,8 @@ int main(int argc, char** argv)
         return result;
     }
 
-    result = ivm_image_add_segment(NULL, image, IVM_SEG_NULL, 0x1000, 0, 0x400000, 0x1000);
-    if (result != 0) {
-        fprintf(stderr, "Failed to create NULL segment: %s\n", strerror(result));
-        return result;
-    }
-
-    result = ivm_image_load_vm(image, &funcs, 0x400000);
+    //result = ivm_image_load_vm(image, &funcs, 0x400000);
+    result = ivm_image_load_vm_from_file(image, argv[1], 0x400000);
     if (result != 0) {
         fprintf(stderr, "Failed to load VM code: %s\n", strerror(result));
         return result;
@@ -72,6 +67,7 @@ int main(int argc, char** argv)
         fprintf(stderr, "Failed to reserve VM memory for data: %s\n", strerror(result));
         return result;
     }
+
 
 
     FILE* fp = fopen(argv[2], "w");

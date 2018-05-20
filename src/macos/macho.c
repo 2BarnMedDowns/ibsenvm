@@ -34,7 +34,7 @@ static size_t count_sections(const struct ivm_segment* segment)
 
 
 
-static struct segment_command_64* create_segment(const struct ivm_image* image, const struct ivm_segment* segment, size_t file_start, uint64_t* entryoff)
+static struct segment_command_64* create_segment(const struct ivm_segment* segment, size_t file_start, uint64_t* entryoff)
 {
     size_t num_sects = count_sections(segment);
     size_t size = sizeof(struct segment_command_64) + sizeof(struct section_64) * num_sects;
@@ -47,11 +47,11 @@ static struct segment_command_64* create_segment(const struct ivm_image* image, 
     memset(cmd, 0, size);
     cmd->cmd = LC_SEGMENT_64;
     cmd->cmdsize = size;
+    cmd->maxprot = VM_PROT_NONE;
+    cmd->initprot = VM_PROT_NONE;
 
     if (segment == NULL) {
-        // No reason to continue if linkedit segment
-        strcpy(cmd->segname, SEG_LINKEDIT);
-        cmd->fileoff = file_start + image->file_size;
+        // No reason to continue
         return cmd;
     }
 
@@ -59,16 +59,10 @@ static struct segment_command_64* create_segment(const struct ivm_image* image, 
     cmd->vmsize = segment->vm_size;
     cmd->fileoff = file_start + segment->file_start;
     cmd->filesize = segment->file_size;
-    cmd->maxprot = VM_PROT_NONE;
-    cmd->initprot = VM_PROT_NONE;
     cmd->nsects = num_sects;
     cmd->flags = 0;
 
     switch (segment->type) {
-        case IVM_SEG_NULL:
-            strcpy(cmd->segname, SEG_PAGEZERO);
-            break;
-
         case IVM_SEG_CODE:
             strcpy(cmd->segname, SEG_TEXT);
             cmd->fileoff = 0;
@@ -186,11 +180,11 @@ int ivm_image_write(FILE* fp, const struct ivm_image* image, const void* bytecod
     struct mach_header_64 mhdr;
     struct dy_cmds* ds = NULL;
     size_t curr_segment;
-    struct segment_command_64* segments[image->num_segments + 1];
-    int err = 0;
+    struct segment_command_64* segments[image->num_segments + 2];
     struct entry_point_command entry_point;
+    int err = 0;
 
-    memset(segments, 0, sizeof(struct segment_command_64*) * (image->num_segments + 1));
+    memset(segments, 0, sizeof(struct segment_command_64*) * (image->num_segments + 2));
 
     ds = create_dynamic_stuff();
     if (ds == NULL) {
@@ -208,20 +202,31 @@ int ivm_image_write(FILE* fp, const struct ivm_image* image, const void* bytecod
     mhdr.cputype = CPU_TYPE_X86_64;
     mhdr.cpusubtype = CPU_SUBTYPE_X86_64_ALL | CPU_SUBTYPE_I386_ALL;
     mhdr.filetype = MH_EXECUTE;
-    mhdr.ncmds = ds->ncmds + 2 + image->num_segments;
+    mhdr.ncmds = ds->ncmds + 3 + image->num_segments;
     mhdr.sizeofcmds = ds->sizeofcmds 
         + sizeof(struct entry_point_command) 
         + sizeof(struct section_64) * image->num_sections 
-        + sizeof(struct segment_command_64) * (image->num_segments + 1);
+        + sizeof(struct segment_command_64) * (image->num_segments + 2);
     mhdr.flags = MH_NOUNDEFS;
     mhdr.reserved = 0;
 
     size_t data_start = IVM_ALIGN_ADDR(sizeof(mhdr) + mhdr.sizeofcmds, image->page_size);
 
+    // Create empty pagezero segment
+    segments[0] = create_segment(NULL, data_start, NULL);
+    if (segments[0] == NULL) {
+        err = errno;
+        goto leave;
+    }
+    strcpy(segments[0]->segname, SEG_PAGEZERO);
+    segments[0]->vmaddr = 0;
+    segments[0]->vmsize = image->vm_entry_point;
+    segments[0]->fileoff = data_start;
+
     // Create segment load commands
-    curr_segment = 0;
+    curr_segment = 1;
     ivm_list_foreach(const struct ivm_segment, segment, &image->segments) {
-        segments[curr_segment] = create_segment(image, segment, data_start, &entry_point.entryoff);
+        segments[curr_segment] = create_segment(segment, data_start, &entry_point.entryoff);
         if (segments[curr_segment] == NULL) {
             err = errno;
             goto leave;
@@ -231,11 +236,17 @@ int ivm_image_write(FILE* fp, const struct ivm_image* image, const void* bytecod
     }
 
     // Create empty linkedit segment
-    segments[curr_segment] = create_segment(image, NULL, data_start, NULL);
+    segments[curr_segment] = create_segment(NULL, data_start, NULL);
+    if (segments[curr_segment] == NULL) {
+        err = errno;
+        goto leave;
+    }
+    strcpy(segments[curr_segment]->segname, SEG_LINKEDIT);
+    segments[curr_segment]->fileoff = data_start + image->file_size;
 
     // Write header and load commands to file
     fwrite(&mhdr, sizeof(mhdr), 1, fp);
-    for (curr_segment = 0; curr_segment < image->num_segments + 1; ++curr_segment) {
+    for (curr_segment = 0; curr_segment < image->num_segments + 2; ++curr_segment) {
         write_load_command(fp, segments[curr_segment]);
     }
     fwrite(ds->cmds, ds->sizeofcmds, 1, fp);
@@ -270,7 +281,7 @@ int ivm_image_write(FILE* fp, const struct ivm_image* image, const void* bytecod
     }
 
 leave:
-    for (curr_segment = 0; curr_segment < image->num_segments + 1; ++curr_segment) {
+    for (curr_segment = 0; curr_segment < image->num_segments + 2; ++curr_segment) {
         free(segments[curr_segment]);
     }
     free(ds);

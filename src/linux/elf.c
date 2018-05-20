@@ -63,9 +63,6 @@ int ivm_image_write(FILE* fp, const struct ivm_image* image, const void* bytecod
         phdr.p_align = segment->vm_align;
 
         switch (segment->type) {
-            case IVM_SEG_NULL:
-                break;
-
             case IVM_SEG_CODE:
                 // Include ELF header and program headers
                 phdr.p_offset = 0;

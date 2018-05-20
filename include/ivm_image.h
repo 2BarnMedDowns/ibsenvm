@@ -51,7 +51,6 @@ struct ivm_image
  */
 enum ivm_segment_type
 {
-    IVM_SEG_NULL,       // Segment contains nothing
     IVM_SEG_CODE,       // Segment contains VM code
     IVM_SEG_DATA,       // Segment contains VM data
 };
