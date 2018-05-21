@@ -200,7 +200,7 @@ int ivm_image_write(FILE* fp, const struct ivm_image* image, const void* bytecod
     // Create Mach-O header
     mhdr.magic = MH_MAGIC_64;
     mhdr.cputype = CPU_TYPE_X86_64;
-    mhdr.cpusubtype = CPU_SUBTYPE_X86_64_ALL | CPU_SUBTYPE_I386_ALL;
+    mhdr.cpusubtype = CPU_SUBTYPE_LIB64 | CPU_SUBTYPE_I386_ALL; //CPU_SUBTYPE_X86_64_ALL | CPU_SUBTYPE_I386_ALL;
     mhdr.filetype = MH_EXECUTE;
     mhdr.ncmds = ds->ncmds + 3 + image->num_segments;
     mhdr.sizeofcmds = ds->sizeofcmds 

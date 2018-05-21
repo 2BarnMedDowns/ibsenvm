@@ -46,7 +46,7 @@ int main(int argc, char** argv)
 //    struct ivm_vm_functions funcs;
 //    get_functions(argv[1], &funcs);
 
-    const char* string = "\x0eHello, world!\n";
+    const char* string = "\x11Peer, du lyver!\n";
 
     struct ivm_image* image;
     result = ivm_image_create(&image, 32, 0x400, 256);
@@ -62,13 +62,11 @@ int main(int argc, char** argv)
         return result;
     }
 
-    result = ivm_image_reserve_vm_data(image, IVM_ENTRY, 16);
+    result = ivm_image_reserve_vm_data(image, IVM_ENTRY, 18);
     if (result != 0) {
         fprintf(stderr, "Failed to reserve VM memory for data: %s\n", strerror(result));
         return result;
     }
-
-
 
     FILE* fp = fopen(argv[2], "w");
     if (fp == NULL) {

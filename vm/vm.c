@@ -10,21 +10,21 @@
 #include "syscall.h"
 
 
-static inline __attribute__((always_inline))
-size_t print(int fd, const char* str)
-{
-    size_t n;
-    for (n = 0; *(str + n) != '\0'; ++n);
-    return ibsen_write(fd, str, n);
-}
-
-
-
+//static inline __attribute__((always_inline))
+//size_t print(int fd, const char* str)
+//{
+//    size_t n;
+//    for (n = 0; *(str + n) != '\0'; ++n);
+//    return ibsen_write(fd, str, n);
+//}
+//
+//
+//
 static inline __attribute__((always_inline))
 size_t print_uint(int fd, size_t pad, uint64_t value)
 {
     size_t i, n;
-    char placeholder[32];
+    char placeholder[8];
 
     for (i = 0; i < sizeof(placeholder); ++i) {
         placeholder[i] = '0';
@@ -64,16 +64,27 @@ void __interrupt(struct ivm_data* vm, int fd, uint64_t addr)
 
 int64_t __vm(struct ivm_data* vm)
 {
-    return 2;
+    void* data = (void*) vm->ftable[0].addr;
+    size_t len = *(uint8_t*) data;
+    const char* str = ((const char*) data) + 1;
+//    __asm__ volatile ("syscall" 
+//            : "=a" (len) 
+//            : "a" (0x2000004), "D" (1), "S" (str), "d" (len)
+//            : "memory"
+//            );
+    len = ibsen_syscall3(0x2000004, 1, str, len);
+    return len;
 }
 
 
 void __loader(void)
 {
-    char s[] = "hello\n";
-    //int a = print_uint(1, 0, 0xdeadbeef);
-    //ibsen_syscall1(0x2000001, 2);
-    //ibsen_exit(15);
+    struct ivm_data* data = (struct ivm_data*) IVM_ENTRY;
+    int64_t (*vm)(struct ivm_data*) = (void*) data->vm_addr;
+    int64_t status = vm(data);
+
+    print_uint(1, 0, 0xdead);
+    ibsen_syscall1(0x2000001, status);
 }
 
 
